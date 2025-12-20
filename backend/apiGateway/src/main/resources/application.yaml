@@ -1,0 +1,37 @@
+server:
+  port: 8080 # The standard Gateway port
+
+spring:
+  application:
+    name: apiGateway
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true # Automatically create routes based on Service IDs (USERSERVICE)
+          lower-case-service-id: true # /userservice/** -> USERSERVICE
+
+      routes:
+        - id: user-service
+          uri: lb://USERSERVICE   # Must match Eureka Name (UPPERCASE)
+          predicates:
+            - Path=/api/auth/** # Explicitly match auth paths
+
+        - id: user-service-2      # Secondary route for other user endpoints
+          uri: lb://USERSERVICE
+          predicates:
+            - Path=/api/users/**
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+logging:
+  level:
+    org.springframework.cloud.gateway: DEBUG
+    org.springframework.http.server.reactive: DEBUG
+    org.springframework.web.reactive: DEBUG
+    reactor.netty: DEBUG

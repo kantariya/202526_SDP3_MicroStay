@@ -48,7 +48,7 @@ public class User implements UserDetails {
     private String country;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "VARCHAR(50)")
     private Role role = Role.USER;
 
     @Column(nullable = false)

@@ -1,40 +1,37 @@
 spring:
+  cloud:
+    config:
+      enabled: false
   application:
     name: userService
-
   datasource:
-    url: jdbc:mysql://localhost:3306/microstay_users?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC
+    url: jdbc:mysql://localhost:3306/microstay_users?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
     username: root
-    password: 1234
+    password: ''
     driver-class-name: com.mysql.cj.jdbc.Driver
-
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: true
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
-        format_sql: true
-
-  # For handling large payloads
-  servlet:
-    multipart:
-      max-file-size: 10MB
-      max-request-size: 10MB
+    # Flyway Configuration
+  flyway:
+    enabled: true
+    baseline-on-migrate: true # Helps if you run it on a non-empty DB by mistake
+    locations: classpath:db/migration # This is where we put the .sql files
 
 server:
   port: 8081
-  servlet:
-    context-path: /
 
-# JWT Configuration
-jwt:
-  secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
-  expiration: 86400000  # 24 hours in milliseconds
-  refresh-expiration: 604800000  # 7 days in milliseconds
+# FIXED: Matching the structure expected by JwtUtils.java
+application:
+  security:
+    jwt:
+      secret-key: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+      expiration: 86400000
 
-# Eureka Configuration
 eureka:
   client:
     service-url:
@@ -45,21 +42,16 @@ eureka:
     prefer-ip-address: true
     hostname: localhost
 
-# Actuator Configuration
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,prometheus
+        include: health, info, metrics # Don't use '*' in production!
   endpoint:
     health:
       show-details: always
 
-# Logging
 logging:
   level:
-    com.microstay.userService: DEBUG
-    org.springframework.security: DEBUG
-    org.hibernate.SQL: DEBUG
-  pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    org.springframework.security: TRACE
+    org.springframework.security.web.FilterChainProxy: DEBUG
