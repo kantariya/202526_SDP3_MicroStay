@@ -22,7 +22,7 @@ public class RegisterRequest {
     @NotBlank(message = "Last name is required")
     private String lastName;
 
-    @NotBlank(message = "Phone is required")
+
     private String phone;
 
     private String address;

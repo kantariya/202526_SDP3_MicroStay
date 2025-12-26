@@ -39,6 +39,7 @@ public class AuthService {
         user.setCountry(request.getCountry());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setPhone(request.getPhone());
+        user.setGoogleUser(false);
         user.setRole(Role.USER); // Default to USER. Admins usually created manually via SQL or special endpoint.
 
         repository.save(user);
@@ -52,7 +53,17 @@ public class AuthService {
     }
 
     public Map<String, String> login(LoginRequest request) {
-        // This line does the heavy lifting: checks password, checks if user exists
+
+        // 🔹 Find user first
+        User user = repository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new RuntimeException("Invalid email or password"));
+
+        // 🚫 BLOCK password login if user is Google-only
+        if (user.isGoogleUser() && user.getPassword() == null) {
+            throw new RuntimeException("Please login using Google");
+        }
+
+        // 🔐 Normal authentication
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         request.getEmail(),
@@ -60,13 +71,14 @@ public class AuthService {
                 )
         );
 
-        var user = repository.findByEmail(request.getEmail())
-                .orElseThrow();
+        // 🔑 Generate JWT
+        String jwtToken = jwtUtils.generateToken(user);
 
-        var jwtToken = jwtUtils.generateToken(user);
         Map<String, String> response = new HashMap<>();
         response.put("token", jwtToken);
-        response.put("role", user.getRole().name()); // Useful for Frontend to know who they are
+        response.put("role", user.getRole().name());
+
         return response;
     }
+
 }
