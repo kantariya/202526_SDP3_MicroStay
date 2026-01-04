@@ -5,7 +5,7 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import UserProfile from './pages/userprofile'
 import Dashboard from './pages/DashBoard'
-import OAuth2RedirectHandler from './component/OAuth2RedirectHandler'
+import OAuthSuccess from './pages/oauthSuccess'
 import './index.css'
 import { ProtectedRoute , PublicRoute } from './layout/ProtectedRoute'
 
@@ -20,7 +20,7 @@ function App() {
             <Route element={<PublicRoute />}>
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
-                <Route path="/oauth2/redirect" element={<OAuth2RedirectHandler />} />
+                <Route path="/oauth-success" element={<OAuthSuccess/>} />
             </Route>
 
            <Route element={<ProtectedRoute />}>

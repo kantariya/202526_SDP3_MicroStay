@@ -60,15 +60,9 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         // 🔑 Generate JWT
         String token = jwtUtils.generateToken(user);
 
-        // ✅ RETURN JSON (instead of redirect)
-        response.setContentType("application/json");
-        response.setCharacterEncoding("UTF-8");
+        String redirectUrl =
+                "http://localhost:5173/oauth-success?token=" + token;
 
-        response.getWriter().write("""
-            {
-              "token": "%s",
-              "role": "%s"
-            }
-        """.formatted(token, user.getRole().name()));
+        response.sendRedirect(redirectUrl);
     }
 }
