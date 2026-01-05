@@ -12,6 +12,7 @@ export default function Login() {
     password: '',
     remember: false,
   });
+  const [errors, setErrors] = useState({});
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -21,31 +22,67 @@ export default function Login() {
     }));
   };
 
+  const validateForm = () => {
+    const newErrors = {};
+
+    if (!formData.email.trim()) {
+      newErrors.email = "Email is required";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = "Please enter a valid email address";
+    }
+
+    if (!formData.password) {
+      newErrors.password = "Password is required";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Clear previous errors
+    setErrors({});
+
+    // Validate form
+    if (!validateForm()) {
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      // 1. Send request to Java Backend
-      // The payload matches your 'LoginRequest' DTO
+      // Send request to Java Backend
       const response = await api.post('/login', {
-        email: formData.email,
+        email: formData.email.trim().toLowerCase(),
         password: formData.password
       });
 
-      // 2. Destructure response data (adjust keys based on your Java Map response)
+      // Destructure response data
       const { token, role } = response.data;
 
-      // 3. Store in LocalStorage
-      localStorage.setItem('token', token);
-      localStorage.setItem('role', role);
+      // Store in LocalStorage
+      if (token) {
+        localStorage.setItem('token', token);
+        if (role) {
+          localStorage.setItem('role', role);
+        }
 
-      // 4. Navigate to home/dashboard
-      navigate('/');
+        // Navigate to home/dashboard
+        navigate('/');
+      }
     } catch (error) {
-      // Axios stores backend error messages in error.response.data
-      const message = error.response?.data?.message || "Invalid email or password";
-      alert("Login Error: " + message);
+      console.error("Login error:", error);
+      
+      // Handle validation errors from backend
+      if (error.errors) {
+        setErrors(error.errors);
+      } else {
+        // Show error message
+        const errorMessage = error.message || "Invalid email or password";
+        setErrors({ general: errorMessage });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -81,10 +118,17 @@ export default function Login() {
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
-                  className="block w-full rounded-lg border border-gray-300 pl-10 pr-3 py-3 transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                  className={`block w-full rounded-lg border pl-10 pr-3 py-3 transition focus:ring-2 ${
+                    errors.email 
+                      ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
+                      : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+                  }`}
                   placeholder="you@example.com"
                   required
                 />
+                {errors.email && (
+                  <p className="text-red-500 text-xs mt-1 ml-1">{errors.email}</p>
+                )}
               </div>
             </div>
 
@@ -103,10 +147,17 @@ export default function Login() {
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
-                  className="block w-full rounded-lg border border-gray-300 pl-10 pr-12 py-3 transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                  className={`block w-full rounded-lg border pl-10 pr-12 py-3 transition focus:ring-2 ${
+                    errors.password 
+                      ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
+                      : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+                  }`}
                   placeholder="Enter your password"
                   required
                 />
+                {errors.password && (
+                  <p className="text-red-500 text-xs mt-1 ml-1">{errors.password}</p>
+                )}
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
@@ -140,6 +191,13 @@ export default function Login() {
                 Forgot password?
               </a>
             </div>
+
+            {/* Error message */}
+            {errors.general && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                {errors.general}
+              </div>
+            )}
 
             {/* Submit Button */}
             <button

@@ -5,6 +5,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 10000, // 10 seconds timeout
 });
 
 // --- REQUEST INTERCEPTOR ---
@@ -30,8 +31,20 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    // If the server returns 401 (Unauthorized), the token is likely expired or invalid
-    if (error.response && error.response.status === 401) {
+    // Handle network errors
+    if (!error.response) {
+      console.error('Network error:', error.message);
+      return Promise.reject({
+        message: 'Network error. Please check your internet connection.',
+        isNetworkError: true
+      });
+    }
+
+    const status = error.response.status;
+    const data = error.response.data;
+
+    // Handle 401 Unauthorized - token expired or invalid
+    if (status === 401) {
       console.warn("Session expired or unauthorized. Logging out...");
       
       localStorage.removeItem('token');
@@ -39,10 +52,31 @@ api.interceptors.response.use(
       
       // Force redirect to login page
       window.location.href = '/login';
+      return Promise.reject({
+        message: 'Your session has expired. Please login again.',
+        status: 401
+      });
     }
-    
-    // Return the error so it can still be caught in the component's try/catch
-    return Promise.reject(error);
+
+    // Handle validation errors (400 with errors object)
+    if (status === 400 && data.errors) {
+      const validationErrors = Object.entries(data.errors)
+        .map(([field, message]) => `${field}: ${message}`)
+        .join('\n');
+      return Promise.reject({
+        message: validationErrors || data.message || 'Validation failed',
+        errors: data.errors,
+        status: 400
+      });
+    }
+
+    // Handle other errors
+    const errorMessage = data?.message || data?.error || 'An unexpected error occurred';
+    return Promise.reject({
+      message: errorMessage,
+      status: status,
+      data: data
+    });
   }
 );
 

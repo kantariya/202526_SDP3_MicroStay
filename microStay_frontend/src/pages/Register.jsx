@@ -21,8 +21,9 @@ export default function Register() {
     address: "",
     city: "",
     country: "",
-    terms: false
+    terms: false,
   });
+
 
   // Fetch countries from external API
   useEffect(() => {
@@ -53,32 +54,115 @@ export default function Register() {
     setFormData((prev) => ({ ...prev, country: selectedOption ? selectedOption.value : "" }));
   };
 
+  const [errors, setErrors] = useState({});
+
+  const validateForm = () => {
+    const newErrors = {};
+
+    // First name validation
+    if (!formData.firstName.trim()) {
+      newErrors.firstName = "First name is required";
+    } else if (formData.firstName.trim().length < 1) {
+      newErrors.firstName = "First name must be at least 1 character";
+    } else if (!/^[a-zA-Z\s'-]+$/.test(formData.firstName)) {
+      newErrors.firstName = "First name can only contain letters, spaces, hyphens, and apostrophes";
+    }
+
+    // Last name validation
+    if (!formData.lastName.trim()) {
+      newErrors.lastName = "Last name is required";
+    } else if (formData.lastName.trim().length < 1) {
+      newErrors.lastName = "Last name must be at least 1 character";
+    } else if (!/^[a-zA-Z\s'-]+$/.test(formData.lastName)) {
+      newErrors.lastName = "Last name can only contain letters, spaces, hyphens, and apostrophes";
+    }
+
+    // Email validation
+    if (!formData.email.trim()) {
+      newErrors.email = "Email is required";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = "Please enter a valid email address";
+    }
+
+    // Password validation
+    if (!formData.password) {
+      newErrors.password = "Password is required";
+    } else if (formData.password.length < 6) {
+      newErrors.password = "Password must be at least 6 characters";
+    } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)) {
+      newErrors.password = "Password must contain at least one uppercase letter, one lowercase letter, and one number";
+    }
+
+    // Confirm password validation
+    if (!formData.confirmPassword) {
+      newErrors.confirmPassword = "Please confirm your password";
+    } else if (formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = "Passwords do not match";
+    }
+
+    // Phone validation (optional but validate format if provided)
+    if (formData.phone && !/^[+]?[(]?[0-9]{1,4}[)]?[-\\s.]?[(]?[0-9]{1,4}[)]?[-\\s.]?[0-9]{1,9}$/.test(formData.phone)) {
+      newErrors.phone = "Please enter a valid phone number";
+    }
+
+    // Terms validation
+    if (!formData.terms) {
+      newErrors.terms = "You must accept the Terms & Conditions";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = async (e) => {
-  e.preventDefault();
-  
-  // 1. Validations (Stay on the frontend)
-  if (formData.password !== formData.confirmPassword) return alert("Passwords do not match");
-  if (formData.password.length < 6) return alert("Password must be at least 6 characters");
-  if (!formData.terms) return alert("Please accept Terms & Conditions");
+    e.preventDefault();
 
-  setIsLoading(true);
+    // Clear previous errors
+    setErrors({});
 
-  try {
-    // 2. Destructure confirmPassword and terms out, keep the rest in 'registerData'
-    const { confirmPassword, terms, ...registerData } = formData;
+    // Validate form
+    if (!validateForm()) {
+      return;
+    }
 
-    // 3. Send ONLY the fields the backend expects
-    const response = await api.post("/register", registerData);
-    
-    localStorage.setItem("token", response.data.token);
-    navigate("/");
-  } catch (err) {
-    console.log(err);
-    alert(err.response?.data || "Registration failed");
-  } finally {
-    setIsLoading(false);
-  }
-};
+    setIsLoading(true);
+
+    try {
+      // Destructure confirmPassword and terms out, keep the rest in 'registerData'
+      const { confirmPassword, terms, ...registerData } = formData;
+
+      // Trim string fields
+      Object.keys(registerData).forEach(key => {
+        if (typeof registerData[key] === 'string') {
+          registerData[key] = registerData[key].trim();
+        }
+      });
+
+      // Send ONLY the fields the backend expects
+      const response = await api.post("/register", registerData);
+
+      if (response.data.token) {
+        localStorage.setItem("token", response.data.token);
+        if (response.data.role) {
+          localStorage.setItem("role", response.data.role);
+        }
+        navigate("/");
+      }
+    } catch (err) {
+      console.error("Registration error:", err);
+
+      // Handle validation errors from backend
+      if (err.errors) {
+        setErrors(err.errors);
+      } else {
+        // Show error message
+        const errorMessage = err.message || "Registration failed. Please try again.";
+        setErrors({ general: errorMessage });
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Modern React-Select Styling
   const selectStyles = {
@@ -116,11 +200,11 @@ export default function Register() {
     // This fixes the individual items inside the list
     option: (base, state) => ({
       ...base,
-      backgroundColor: state.isSelected 
+      backgroundColor: state.isSelected
         ? "#4f46e5" // Indigo-600 when selected
-        : state.isFocused 
-        ? "#f1f5f9" // Slate-100 on hover
-        : "white",
+        : state.isFocused
+          ? "#f1f5f9" // Slate-100 on hover
+          : "white",
       color: state.isSelected ? "white" : "#334155", // slate-700
       cursor: "pointer",
       padding: "10px 15px",
@@ -138,7 +222,7 @@ export default function Register() {
       <div className="absolute top-0 -right-4 w-72 h-72 bg-indigo-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-2000"></div>
 
       <div className="w-full max-w-2xl bg-white/80 backdrop-blur-xl shadow-2xl rounded-[2.5rem] p-8 md:p-12 border border-white relative z-10">
-        
+
         {/* Header */}
         <div className="mb-8 text-center">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-indigo-600 mb-4 shadow-lg shadow-indigo-200">
@@ -149,7 +233,7 @@ export default function Register() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          
+
           {/* First & Last Name */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div className="space-y-1.5">
@@ -163,8 +247,11 @@ export default function Register() {
                   onChange={handleChange}
                   required
                   placeholder="John"
-                  className="w-full bg-slate-50 border-none rounded-2xl pl-12 pr-4 py-3.5 focus:ring-2 focus:ring-indigo-600/20 outline-none text-slate-900 placeholder:text-slate-400 transition-all"
+                  className={`w-full bg-slate-50 border-none rounded-2xl pl-12 pr-4 py-3.5 focus:ring-2 focus:ring-indigo-600/20 outline-none text-slate-900 placeholder:text-slate-400 transition-all ${errors.firstName ? 'ring-2 ring-red-500' : ''}`}
                 />
+                {errors.firstName && (
+                  <p className="text-red-500 text-xs mt-1 ml-1">{errors.firstName}</p>
+                )}
               </div>
             </div>
             <div className="space-y-1.5">
@@ -178,8 +265,11 @@ export default function Register() {
                   onChange={handleChange}
                   required
                   placeholder="Doe"
-                  className="w-full bg-slate-50 border-none rounded-2xl pl-12 pr-4 py-3.5 focus:ring-2 focus:ring-indigo-600/20 outline-none text-slate-900 placeholder:text-slate-400 transition-all"
+                  className={`w-full bg-slate-50 border-none rounded-2xl pl-12 pr-4 py-3.5 focus:ring-2 focus:ring-indigo-600/20 outline-none text-slate-900 placeholder:text-slate-400 transition-all ${errors.lastName ? 'ring-2 ring-red-500' : ''}`}
                 />
+                {errors.lastName && (
+                  <p className="text-red-500 text-xs mt-1 ml-1">{errors.lastName}</p>
+                )}
               </div>
             </div>
           </div>
@@ -197,8 +287,11 @@ export default function Register() {
                   onChange={handleChange}
                   required
                   placeholder="john@example.com"
-                  className="w-full bg-slate-50 border-none rounded-2xl pl-12 pr-4 py-3.5 focus:ring-2 focus:ring-indigo-600/20 outline-none text-slate-900 placeholder:text-slate-400 transition-all"
+                  className={`w-full bg-slate-50 border-none rounded-2xl pl-12 pr-4 py-3.5 focus:ring-2 focus:ring-indigo-600/20 outline-none text-slate-900 placeholder:text-slate-400 transition-all ${errors.email ? 'ring-2 ring-red-500' : ''}`}
                 />
+                {errors.email && (
+                  <p className="text-red-500 text-xs mt-1 ml-1">{errors.email}</p>
+                )}
               </div>
             </div>
             <div className="space-y-1.5">
@@ -211,8 +304,11 @@ export default function Register() {
                   value={formData.phone}
                   onChange={handleChange}
                   placeholder="+91 0000000000"
-                  className="w-full bg-slate-50 border-none rounded-2xl pl-12 pr-4 py-3.5 focus:ring-2 focus:ring-indigo-600/20 outline-none text-slate-900 placeholder:text-slate-400 transition-all"
+                  className={`w-full bg-slate-50 border-none rounded-2xl pl-12 pr-4 py-3.5 focus:ring-2 focus:ring-indigo-600/20 outline-none text-slate-900 placeholder:text-slate-400 transition-all ${errors.phone ? 'ring-2 ring-red-500' : ''}`}
                 />
+                {errors.phone && (
+                  <p className="text-red-500 text-xs mt-1 ml-1">{errors.phone}</p>
+                )}
               </div>
             </div>
           </div>
@@ -274,8 +370,11 @@ export default function Register() {
                   onChange={handleChange}
                   required
                   placeholder="••••••••"
-                  className="w-full bg-slate-50 border-none rounded-2xl pl-12 pr-12 py-3.5 focus:ring-2 focus:ring-indigo-600/20 outline-none text-slate-900 transition-all"
+                  className={`w-full bg-slate-50 border-none rounded-2xl pl-12 pr-12 py-3.5 focus:ring-2 focus:ring-indigo-600/20 outline-none text-slate-900 transition-all ${errors.password ? 'ring-2 ring-red-500' : ''}`}
                 />
+                {errors.password && (
+                  <p className="text-red-500 text-xs mt-1 ml-1">{errors.password}</p>
+                )}
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
@@ -296,25 +395,40 @@ export default function Register() {
                   onChange={handleChange}
                   required
                   placeholder="••••••••"
-                  className="w-full bg-slate-50 border-none rounded-2xl pl-12 pr-4 py-3.5 focus:ring-2 focus:ring-indigo-600/20 outline-none text-slate-900 transition-all"
+                  className={`w-full bg-slate-50 border-none rounded-2xl pl-12 pr-4 py-3.5 focus:ring-2 focus:ring-indigo-600/20 outline-none text-slate-900 transition-all ${errors.confirmPassword ? 'ring-2 ring-red-500' : ''}`}
                 />
+                {errors.confirmPassword && (
+                  <p className="text-red-500 text-xs mt-1 ml-1">{errors.confirmPassword}</p>
+                )}
               </div>
             </div>
           </div>
 
           {/* Terms */}
-          <label className="flex items-center gap-3 cursor-pointer py-2">
-            <input
-              type="checkbox"
-              name="terms"
-              checked={formData.terms}
-              onChange={handleChange}
-              className="w-5 h-5 rounded-md border-slate-200 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-            />
-            <span className="text-sm text-slate-600">
-              I accept the <span className="text-indigo-600 font-semibold hover:underline">Terms</span> and <span className="text-indigo-600 font-semibold hover:underline">Privacy Policy</span>
-            </span>
-          </label>
+          <div>
+            <label className="flex items-center gap-3 cursor-pointer py-2">
+              <input
+                type="checkbox"
+                name="terms"
+                checked={formData.terms}
+                onChange={handleChange}
+                className={`w-5 h-5 rounded-md border-slate-200 text-indigo-600 focus:ring-indigo-500 cursor-pointer ${errors.terms ? 'ring-2 ring-red-500' : ''}`}
+              />
+              <span className="text-sm text-slate-600">
+                I accept the <span className="text-indigo-600 font-semibold hover:underline">Terms</span> and <span className="text-indigo-600 font-semibold hover:underline">Privacy Policy</span>
+              </span>
+            </label>
+            {errors.terms && (
+              <p className="text-red-500 text-xs mt-1 ml-8">{errors.terms}</p>
+            )}
+          </div>
+
+          {/* General error message */}
+          {errors.general && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+              {errors.general}
+            </div>
+          )}
 
           {/* Submit Button */}
           <button
@@ -344,7 +458,7 @@ export default function Register() {
         </button>
 
         <p className="text-center text-slate-500 font-medium">
-          Already a member? 
+          Already a member?
           <Link to="/login" className="text-indigo-600 hover:text-indigo-700 ml-1.5 font-bold">Sign in</Link>
         </p>
       </div>

@@ -22,6 +22,11 @@ public class UserController {
     public ResponseEntity<User> getMyProfile() {
         // This logic only runs if the JWT Filter worked!
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        
+        if (authentication == null || authentication.getName() == null) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
+        }
+        
         String email = authentication.getName();
 
         User user = userRepository.findByEmail(email)

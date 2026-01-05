@@ -35,6 +35,8 @@ public class Hotel {
     private Long createdBy; // HOTEL_MANAGER userId
     private Boolean active = true;
 
+    private List<String> imageUrls;
+
     private List<Room> rooms;
     private List<Review> reviews;
 }
