@@ -1,49 +1,56 @@
 package com.microstay.hotelService.controller;
 
-import com.microstay.hotelService.dto.ReviewRequestDto;
-import com.microstay.hotelService.entity.Hotel;
-import com.microstay.hotelService.entity.Review;
+import com.microstay.hotelService.entity.HotelReview;
 import com.microstay.hotelService.service.ReviewService;
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
-@RequestMapping("/api/reviews")
+@RequestMapping("/api/hotels/{hotelId}/reviews")
 @RequiredArgsConstructor
-@Validated
 public class ReviewController {
 
     private final ReviewService reviewService;
 
-    @PostMapping("/{hotelId}")
-    public ResponseEntity<Hotel> addReview(
-            @PathVariable @NotBlank(message = "Hotel ID cannot be blank") String hotelId,
-            @RequestBody @Valid ReviewRequestDto dto,
-            @RequestHeader("X-USER-ID") @NotNull(message = "User ID is required") @Positive(message = "User ID must be positive") Long userId
+    @GetMapping
+    public ResponseEntity<List<HotelReview>> getReviews(
+            @PathVariable String hotelId
     ) {
-        Review review = new Review();
-        review.setUserId(userId);
-        review.setRating(dto.getRating());
-        review.setComment(dto.getComment());
-
-        Hotel hotel = reviewService.addReview(hotelId, review);
-        return ResponseEntity.status(HttpStatus.CREATED).body(hotel);
+        return ResponseEntity.ok(reviewService.getReviews(hotelId));
     }
 
-    @DeleteMapping("/{hotelId}/{reviewId}")
-    public ResponseEntity<Hotel> deleteReview(
-            @PathVariable @NotBlank(message = "Hotel ID cannot be blank") String hotelId,
-            @PathVariable @NotBlank(message = "Review ID cannot be blank") String reviewId,
-            @RequestHeader("X-USER-ID") @NotNull(message = "User ID is required") @Positive(message = "User ID must be positive") Long userId
+    @PostMapping
+    public ResponseEntity<HotelReview> addReview(
+            @PathVariable String hotelId,
+            @RequestHeader("X-User-Id") String userId,
+            @RequestBody HotelReview review
     ) {
-        Hotel hotel = reviewService.deleteReview(hotelId, reviewId, userId);
-        return ResponseEntity.ok(hotel);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(reviewService.addReview(hotelId, userId, review));
+    }
+
+    @PutMapping("/{reviewId}")
+    public ResponseEntity<HotelReview> updateReview(
+            @PathVariable String reviewId,
+            @RequestHeader("X-User-Id") String userId,
+            @RequestBody HotelReview review
+    ) {
+        return ResponseEntity.ok(
+                reviewService.updateReview(reviewId, userId, review)
+        );
+    }
+
+    @DeleteMapping("/{reviewId}")
+    public ResponseEntity<Void> deleteReview(
+            @PathVariable String reviewId,
+            @RequestHeader("X-User-Id") String userId,
+            @RequestHeader("X-User-Role") String role
+    ) {
+        reviewService.deleteReview(reviewId, userId, role);
+        return ResponseEntity.noContent().build();
     }
 }

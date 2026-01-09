@@ -54,7 +54,7 @@ export default function Login() {
 
     try {
       // Send request to Java Backend
-      const response = await api.post('/login', {
+      const response = await api.post('/auth/login', {
         email: formData.email.trim().toLowerCase(),
         password: formData.password
       });

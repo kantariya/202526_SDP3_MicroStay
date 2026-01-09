@@ -1,0 +1,59 @@
+{
+  "_id": "HOTEL_1001",
+  "name": "The Grand Palace",
+  "brand": "Grand Group",
+  "description": "Luxury hotel in city center",
+  "starRating": 5,
+
+  "location": {
+    "address": "MG Road, Near Metro Station",
+    "city": "Bangalore",
+    "state": "Karnataka",
+    "country": "India",
+    "pincode": "560001",
+    "geo": {
+      "type": "Point",
+      "coordinates": [77.5946, 12.9716]
+    }
+  },
+
+  "contact": {
+    "phone": "+91-9876543210",
+    "email": "contact@grandpalace.com"
+  },
+
+  "checkInTime": "14:00",
+  "checkOutTime": "11:00",
+
+  "policies": {
+    "cancellation": "Free cancellation before 24 hours",
+    "petsAllowed": false,
+    "smokingAllowed": false
+  },
+
+  "facilities": [
+    "Free WiFi",
+    "Swimming Pool",
+    "Gym",
+    "Spa",
+    "Restaurant",
+    "Parking"
+  ],
+
+  "images": [
+    "https://cdn.hotel.com/hotel1/img1.jpg",
+    "https://cdn.hotel.com/hotel1/img2.jpg"
+  ],
+
+  "rooms": [],
+
+  "status": "ACTIVE",
+  "createdAt": "2026-01-05T10:30:00Z",
+  "updatedAt": "2026-01-05T10:30:00Z",
+
+  "ratingSummary": {
+    "average": 4.3,
+    "totalReviews": 1287
+  }
+}
+

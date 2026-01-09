@@ -1,0 +1,12 @@
+{
+  "_id": "REV_5001",
+  "hotelId": "HOTEL_1001",
+  "userId": "USER_101",
+
+  "rating": 4.5,
+  "comment": "Clean rooms and friendly staff",
+
+  "createdAt": "2026-01-05T09:00:00Z",
+  "verified": true
+}
+

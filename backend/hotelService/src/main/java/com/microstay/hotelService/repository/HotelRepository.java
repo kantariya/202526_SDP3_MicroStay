@@ -7,7 +7,5 @@ import java.util.List;
 
 public interface HotelRepository extends MongoRepository<Hotel, String> {
 
-    List<Hotel> findByCityAndActiveTrue(String city);
-
-    List<Hotel> findByAverageRatingGreaterThanEqual(Double rating);
+    List<Hotel> findByLocation_City(String city);
 }

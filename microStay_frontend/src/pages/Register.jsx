@@ -139,7 +139,7 @@ export default function Register() {
       });
 
       // Send ONLY the fields the backend expects
-      const response = await api.post("/register", registerData);
+      const response = await api.post("/register/auth", registerData);
 
       if (response.data.token) {
         localStorage.setItem("token", response.data.token);

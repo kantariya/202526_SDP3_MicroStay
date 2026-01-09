@@ -1,0 +1,55 @@
+{
+  "roomId": "ROOM_2001",
+  "roomType": "DELUXE",
+  "title": "Deluxe King Room",
+  "description": "Spacious room with king bed",
+
+  "bedType": "KING",
+  "maxAdults": 2,
+  "maxChildren": 1,
+  "roomSizeSqFt": 350,
+
+  "pricing": {
+    "basePrice": 4500,
+    "currency": "INR",
+    "weekendMultiplier": 1.2,
+    "seasonalPricing": [
+      {
+        "season": "NEW_YEAR",
+        "startDate": "2025-12-20",
+        "endDate": "2026-01-05",
+        "price": 6500
+      }
+    ]
+  },
+
+  "inventory": {
+    "totalRooms": 20
+  },
+
+  "amenities": [
+    "Air Conditioning",
+    "TV",
+    "Mini Bar",
+    "Balcony",
+    "Room Service"
+  ],
+
+  "images": [
+    "https://cdn.hotel.com/room1/img1.jpg"
+  ],
+
+  "availability": [
+    {
+      "date": "2026-02-10",
+      "availableRooms": 12
+    },
+    {
+      "date": "2026-02-11",
+      "availableRooms": 10
+    }
+  ],
+
+  "active": true
+}
+

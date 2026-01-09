@@ -37,15 +37,30 @@ public class JwtUtils {
     }
 
     public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails) {
+
+        //  Extract role as STRING
+        String role = userDetails.getAuthorities()
+                .stream()
+                .findFirst()
+                .map(auth -> auth.getAuthority().replace("ROLE_", ""))
+                .orElse("USER");
+
+        extraClaims.put("role", role);
+
+        //  Add userId safely
+        if (userDetails instanceof com.microstay.userService.entity.User user) {
+            extraClaims.put("userId", user.getId());
+        }
+
         return Jwts.builder()
-                .claims(extraClaims) // Updated method name: setClaims -> claims
-                .subject(userDetails.getUsername()) // Updated: setSubject -> subject
-                .claim("role", userDetails.getAuthorities())
-                .issuedAt(new Date(System.currentTimeMillis())) // Updated: setIssuedAt -> issuedAt
-                .expiration(new Date(System.currentTimeMillis() + jwtExpiration)) // Updated: setExpiration -> expiration
-                .signWith(getSignInKey(), Jwts.SIG.HS256) // Updated: SIG.HS256 is the new standard constant
+                .claims(extraClaims)
+                .subject(userDetails.getUsername()) // email
+                .issuedAt(new Date(System.currentTimeMillis()))
+                .expiration(new Date(System.currentTimeMillis() + jwtExpiration))
+                .signWith(getSignInKey(), Jwts.SIG.HS256)
                 .compact();
     }
+
 
     public boolean isTokenValid(String token, UserDetails userDetails) {
         final String username = extractUsername(token);

@@ -1,26 +1,53 @@
 server:
-  port: 8080 # The standard Gateway port
+  port: 8080
 
 spring:
   application:
     name: apiGateway
+
+  main:
+    web-application-type: reactive
+
   cloud:
     gateway:
+
+      # ✅ FIXED GLOBAL CORS CONFIG
+      globalcors:
+        corsConfigurations:
+          '[/**]':
+            allowedOrigins:
+              - "http://localhost:5173"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            allowedHeaders:
+              - "*"
+            allowCredentials: true
+
       discovery:
         locator:
-          enabled: true # Automatically create routes based on Service IDs (USERSERVICE)
-          lower-case-service-id: true # /userservice/** -> USERSERVICE
+          enabled: true
+          lower-case-service-id: true
 
+      # ✅ FIXED ROUTES
       routes:
-        - id: user-service
-          uri: lb://USERSERVICE   # Must match Eureka Name (UPPERCASE)
+        - id: user-auth
+          uri: lb://USERSERVICE
           predicates:
-            - Path=/api/auth/** # Explicitly match auth paths
+            - Path=/api/auth/**
 
-        - id: user-service-2      # Secondary route for other user endpoints
+        - id: user-api
           uri: lb://USERSERVICE
           predicates:
             - Path=/api/users/**
+
+        - id: hotel-service
+          uri: lb://HOTELSERVICE
+          predicates:
+            - Path=/api/hotels/**
 
 eureka:
   client:
@@ -29,9 +56,18 @@ eureka:
   instance:
     prefer-ip-address: true
 
+application:
+  security:
+    jwt:
+      secret-key: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+
 logging:
   level:
-    org.springframework.cloud.gateway: DEBUG
-    org.springframework.http.server.reactive: DEBUG
-    org.springframework.web.reactive: DEBUG
+    org.springframework.cloud.gateway: TRACE
+    org.springframework.cloud.gateway.handler.RoutePredicateHandlerMapping: TRACE
+    org.springframework.cloud.gateway.filter.GlobalFilter: TRACE
+    org.springframework.web.cors.reactive: TRACE
+    org.springframework.web.server.adapter.HttpWebHandlerAdapter: TRACE
+    reactor.netty.http.server: DEBUG
     reactor.netty: DEBUG
+
