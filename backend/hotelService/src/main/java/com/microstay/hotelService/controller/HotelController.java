@@ -1,5 +1,8 @@
 package com.microstay.hotelService.controller;
 
+import com.microstay.contract.hotelContract.dto.AvailabilityRequest;
+import com.microstay.contract.hotelContract.dto.AvailabilityResponse;
+import com.microstay.contract.hotelContract.dto.ConfirmBookingRequest;
 import com.microstay.hotelService.dto.HotelCardResponse;
 import com.microstay.hotelService.entity.Hotel;
 import com.microstay.hotelService.service.HotelService;
@@ -48,5 +51,19 @@ public class HotelController {
     @DeleteMapping("/{hotelId}")
     public void deleteHotel(@PathVariable String hotelId) {
         hotelService.deleteHotel(hotelId);
+    }
+
+    @PostMapping("/check-availability")
+    public AvailabilityResponse checkAvailability(
+            @RequestBody AvailabilityRequest request) {
+
+        return hotelService.checkAvailability(request);
+    }
+
+    @PostMapping("/confirm-booking")
+    public AvailabilityResponse confirmBooking(
+            @RequestBody ConfirmBookingRequest request) {
+
+        return hotelService.confirmBooking(request);
     }
 }

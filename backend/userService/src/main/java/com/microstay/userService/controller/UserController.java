@@ -1,15 +1,14 @@
 package com.microstay.userService.controller;
 
+import com.microstay.userService.dto.UserResponse;
 import com.microstay.userService.entity.User;
 import com.microstay.userService.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/users")
@@ -19,20 +18,46 @@ public class UserController {
     private final UserRepository userRepository;
 
     @GetMapping("/profile")
-    public ResponseEntity<User> getMyProfile() {
-        // This logic only runs if the JWT Filter worked!
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        
+    public ResponseEntity<UserResponse> getMyProfile() {
+
+        Authentication authentication =
+                SecurityContextHolder.getContext().getAuthentication();
+
         if (authentication == null || authentication.getName() == null) {
-            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-        
+
         String email = authentication.getName();
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        return ResponseEntity.ok(user);
+        UserResponse response = UserResponse.builder()
+                .id(user.getId())
+                .email(user.getEmail())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .phone(user.getPhone())
+                .address(user.getAddress())
+                .city(user.getCity())
+                .country(user.getCountry())
+                .role(user.getRole())
+                .createdAt(user.getCreatedAt())
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
+
+    @GetMapping("/{userId}/username")
+    public ResponseEntity<String> getUsername(@PathVariable Long userId) {
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        String username = user.getFirstName() + " " + user.getLastName();
+
+        return ResponseEntity.ok(username);
     }
 
 

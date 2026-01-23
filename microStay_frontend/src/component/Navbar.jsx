@@ -1,67 +1,89 @@
-// components/Navbar.jsx
-import React from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { User, LogOut, Bell } from 'lucide-react';
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { User, LogOut, Heart } from 'lucide-react';
 
 const Navbar = () => {
   const navigate = useNavigate();
-  const userId = localStorage.getItem('userId');
+  const token = localStorage.getItem('token');
+  const role = localStorage.getItem('role'); // optional
+  const [open, setOpen] = useState(false);
 
   const handleLogout = () => {
-    localStorage.clear();
+    localStorage.removeItem('token');
+    localStorage.removeItem('role');
     navigate('/login');
   };
 
   return (
-    <nav className="sticky top-0 z-50 bg-white border-b border-gray-100 px-6 py-4">
-      <div className="max-w-7xl mx-auto flex items-center justify-between">
+    <nav className="sticky top-0 z-50 backdrop-blur-lg bg-white/70 border-b border-gray-200">
+      <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+
         {/* LOGO */}
-        <Link to="/" className="flex items-center gap-2 group">
-          <div className="bg-blue-600 p-1.5 rounded-lg group-hover:bg-black transition-colors">
-            <div className="w-5 h-5 border-2 border-white rounded-sm rotate-45" />
-          </div>
-          <span className="text-xl font-black tracking-tighter text-slate-900 uppercase">
-            Micro<span className="text-blue-600">Stay</span>
-          </span>
+        <Link to="/" className="text-2xl font-extrabold text-slate-900">
+          Micro<span className="text-blue-600">Stay</span>
         </Link>
 
         {/* NAV LINKS */}
-        <div className="hidden md:flex items-center gap-8">
-          <Link to="/" className="text-sm font-bold text-gray-500 hover:text-blue-600 transition-colors">Explore</Link>
-          <Link to="/bookings" className="text-sm font-bold text-gray-500 hover:text-blue-600 transition-colors">My Bookings</Link>
-          <Link to="/support" className="text-sm font-bold text-gray-500 hover:text-blue-600 transition-colors">Support</Link>
+        <div className="hidden md:flex items-center gap-2 bg-gray-100 px-3 py-1.5 rounded-full">
+          <Link to="/" className="px-4 py-2 rounded-full text-sm font-semibold text-gray-600 hover:bg-white hover:text-blue-600 transition">
+            Explore
+          </Link>
+          <Link to="/bookings" className="px-4 py-2 rounded-full text-sm font-semibold text-gray-600 hover:bg-white hover:text-blue-600 transition">
+            Bookings
+          </Link>
+          <Link to="/favourites" className="px-4 py-2 rounded-full text-sm font-semibold text-gray-600 hover:bg-white hover:text-blue-600 transition flex items-center gap-1">
+            <Heart size={16} /> Favourite
+          </Link>
         </div>
 
-        {/* USER ACTIONS */}
-        <div className="flex items-center gap-4">
-          <button className="p-2 text-gray-400 hover:text-blue-600 transition-colors relative">
-            <Bell size={20} />
-            <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
-          </button>
-          
-          <div className="h-8 w-[1px] bg-gray-100 mx-2" />
-
-          {userId ? (
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 border border-blue-100">
-                <User size={20} />
-              </div>
-              <button 
-                onClick={handleLogout}
-                className="text-xs font-black uppercase tracking-widest text-gray-400 hover:text-red-500 transition-colors"
-              >
-                Logout
-              </button>
-            </div>
-          ) : (
-            <button 
-              onClick={() => navigate('/login')}
-              className="bg-slate-900 text-white px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-blue-600 transition-all shadow-lg shadow-gray-200"
+        {/* USER SECTION */}
+        {token ? (
+          <div className="relative">
+            {/* Profile Button */}
+            <button
+              onClick={() => setOpen(!open)}
+              className="flex items-center gap-2 bg-white px-3 py-2 rounded-full shadow-sm hover:shadow-md transition"
             >
-              Sign In
+              <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                <User size={16} />
+              </div>
+              <span className="text-sm font-semibold text-gray-700 hidden sm:block">
+                Profile
+              </span>
             </button>
-          )}
-        </div>
+
+            {/* Dropdown */}
+            {open && (
+              <div className="absolute right-0 mt-3 w-48 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+                <button
+                  onClick={() => {
+                    navigate('/profile');
+                    setOpen(false);
+                  }}
+                  className="w-full px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                >
+                  <User size={16} />
+                  Profile Details
+                </button>
+
+                <button
+                  onClick={handleLogout}
+                  className="w-full px-4 py-3 text-sm font-semibold text-red-500 hover:bg-gray-50 flex items-center gap-2"
+                >
+                  <LogOut size={16} />
+                  Logout
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <button
+            onClick={() => navigate('/login')}
+            className="bg-blue-600 text-white px-6 py-2.5 rounded-full text-sm font-bold hover:bg-blue-700 transition shadow-md"
+          >
+            Sign In
+          </button>
+        )}
       </div>
     </nav>
   );

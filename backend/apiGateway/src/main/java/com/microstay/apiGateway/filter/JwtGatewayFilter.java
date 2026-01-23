@@ -28,9 +28,11 @@ public class JwtGatewayFilter implements GlobalFilter, Ordered {
         }
 
         // (Optional) public hotel browsing
-        if (path.startsWith("/api/hotels")) {
+        if (path.startsWith("/api/hotels")
+                && exchange.getRequest().getMethod().name().equals("GET")) {
             return chain.filter(exchange);
         }
+
 
         String authHeader = exchange.getRequest()
                 .getHeaders()
@@ -49,11 +51,13 @@ public class JwtGatewayFilter implements GlobalFilter, Ordered {
         }
 
         // (Optional) propagate user info downstream
+        String userId = jwtUtils.extractUserId(token);
         String email = jwtUtils.extractEmail(token);
         String role = jwtUtils.extractRole(token);
 
         ServerWebExchange mutatedExchange = exchange.mutate()
                 .request(builder -> builder
+                        .header("X-User-Id", userId)
                         .header("X-User-Email", email)
                         .header("X-User-Role", role)
                 )

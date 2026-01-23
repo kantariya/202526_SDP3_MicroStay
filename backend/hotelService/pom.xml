@@ -40,6 +40,13 @@
 
 	<dependencies>
 
+		<dependency>
+			<groupId>com.microstay.contract</groupId>
+			<artifactId>hotelContract</artifactId>
+			<version>1.0.0</version>
+		</dependency>
+
+
 		<!-- Web -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
