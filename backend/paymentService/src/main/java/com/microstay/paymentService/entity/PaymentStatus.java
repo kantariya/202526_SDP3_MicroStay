@@ -1,4 +1,4 @@
-package com.microstay.bookingService.entity;
+package com.microstay.paymentService.entity;
 
 public enum PaymentStatus {
     CREATED,
@@ -6,3 +6,4 @@ public enum PaymentStatus {
     FAILED,
     REFUNDED
 }
+

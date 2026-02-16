@@ -5,11 +5,13 @@ import com.microstay.contract.hotelContract.dto.AvailabilityResponse;
 import com.microstay.contract.hotelContract.dto.ConfirmBookingRequest;
 import com.microstay.hotelService.service.HotelService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/internal/hotels")
 @RequiredArgsConstructor
+@Slf4j
 public class InternalHotelController {
 
     private final HotelService hotelService;
@@ -54,6 +56,12 @@ public class InternalHotelController {
 
         request.setHotelId(hotelId);
 
+        hotelService.releaseBooking(request);
+    }
+
+    @PostMapping("/release-booking")
+    public void releaseBooking(@RequestBody ConfirmBookingRequest request) {
+        log.info("Release booking request received: {}", request);
         hotelService.releaseBooking(request);
     }
 }

@@ -24,4 +24,7 @@ public interface HotelServiceClient {
     void releaseRooms(
             @PathVariable String hotelId,
             @RequestBody ConfirmBookingRequest request);
+
+    @PostMapping("/internal/hotels/release-booking")
+    void releaseBooking(@RequestBody ConfirmBookingRequest request);
 }

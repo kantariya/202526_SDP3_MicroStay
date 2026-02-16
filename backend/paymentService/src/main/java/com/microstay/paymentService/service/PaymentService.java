@@ -1,0 +1,150 @@
+package com.microstay.paymentService.service;
+
+import com.microstay.paymentService.client.BookingServiceClient;
+import com.microstay.paymentService.dto.BookingPaymentInfoResponse;
+import com.microstay.paymentService.dto.PaymentRequest;
+import com.microstay.paymentService.dto.PaymentResponse;
+import com.microstay.paymentService.entity.Payment;
+import com.microstay.paymentService.entity.PaymentStatus;
+import com.microstay.paymentService.repository.PaymentRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.time.LocalDateTime;
+import java.util.Locale;
+import java.util.UUID;
+
+import static org.springframework.http.HttpStatus.BAD_REQUEST;
+import static org.springframework.http.HttpStatus.CONFLICT;
+import static org.springframework.http.HttpStatus.NOT_FOUND;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+@Transactional
+public class PaymentService {
+
+    private final PaymentRepository paymentRepository;
+    private final BookingServiceClient bookingServiceClient;
+
+
+    public PaymentResponse createMockPayment(PaymentRequest request, String userIdHeader) {
+
+        Long bookingId = request.getBookingId(); // ✅ ensure Long type
+
+        // ✅ prevent duplicate payment per booking
+        paymentRepository.findByBookingId(bookingId).ifPresent(p -> {
+            throw new ResponseStatusException(CONFLICT, "Payment already exists for this booking");
+        });
+
+        // ✅ fetch booking snapshot from booking-service
+        BookingPaymentInfoResponse booking;
+        try {
+            booking = bookingServiceClient.getBookingForPayment(bookingId);
+        } catch (Exception ex) {
+            throw new ResponseStatusException(NOT_FOUND, "Booking not found");
+        }
+
+        // ✅ user ownership check
+        if (userIdHeader != null && !userIdHeader.isBlank()
+                && booking.getUserId() != null
+                && !userIdHeader.equals(booking.getUserId())) {
+            throw new ResponseStatusException(BAD_REQUEST, "Booking does not belong to this user");
+        }
+
+        // ✅ status check
+        if (booking.getStatus() != null) {
+            String st = booking.getStatus().toUpperCase(Locale.ROOT);
+            if ("CANCELLED".equals(st) || "FAILED".equals(st)) {
+                throw new ResponseStatusException(BAD_REQUEST, "Cannot pay for a " + st + " booking");
+            }
+            if ("CONFIRMED".equals(st)) {
+                throw new ResponseStatusException(CONFLICT, "Booking already paid");
+            }
+        }
+
+        // ✅ currency check
+        if (booking.getCurrency() != null
+                && !booking.getCurrency().equalsIgnoreCase(request.getCurrency())) {
+            throw new ResponseStatusException(BAD_REQUEST, "Currency mismatch for booking");
+        }
+
+        // ✅ amount check
+        if (booking.getTotalAmount() != null) {
+            double expected = booking.getTotalAmount();
+            double actual = request.getAmount();
+            if (Math.abs(expected - actual) > 0.01) {
+                throw new ResponseStatusException(BAD_REQUEST, "Amount mismatch for booking");
+            }
+        }
+
+        // ✅ decide mock result
+        PaymentStatus status =
+                "SUCCESS".equalsIgnoreCase(request.getMockResult())
+                        ? PaymentStatus.SUCCESS
+                        : PaymentStatus.FAILED;
+
+        // ✅ create payment record
+        Payment payment = Payment.builder()
+                .paymentGateway("MOCK")
+                .gatewayPaymentId(UUID.randomUUID().toString())
+                .gatewayOrderId(UUID.randomUUID().toString())
+                .amount(request.getAmount())
+                .currency(request.getCurrency().toUpperCase(Locale.ROOT))
+                .status(status)
+                .paymentTime(LocalDateTime.now())
+                .bookingId(bookingId)
+                .build();
+
+        paymentRepository.save(payment);
+
+        // ✅ notify booking service (THIS IS THE FIX)
+        try {
+            System.out.println("Payment " + status + " for booking " + bookingId + ", notifying booking service");
+
+            if (status == PaymentStatus.SUCCESS) {
+                bookingServiceClient.markPaymentSuccess(bookingId);
+            } else {
+                System.out.println("Payment failed for booking " + bookingId + ", notifying booking service to release");
+                bookingServiceClient.releaseAfterPaymentFailure(bookingId);
+            }
+
+        }  catch (Exception ex) {
+            // do NOT fail payment record — log only
+            log.error("Booking service callback failed for booking {}", bookingId, ex);
+        }
+
+        return toResponse(payment);
+    }
+
+
+    public PaymentResponse getById(Long paymentId) {
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Payment not found"));
+        return toResponse(payment);
+    }
+
+    public PaymentResponse getByBookingId(Long bookingId) {
+        Payment payment = paymentRepository.findByBookingId(bookingId)
+                .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Payment not found for booking"));
+        return toResponse(payment);
+    }
+
+    private PaymentResponse toResponse(Payment payment) {
+        return PaymentResponse.builder()
+                .paymentId(payment.getPaymentId())
+                .bookingId(payment.getBookingId())
+                .paymentGateway(payment.getPaymentGateway())
+                .gatewayPaymentId(payment.getGatewayPaymentId())
+                .gatewayOrderId(payment.getGatewayOrderId())
+                .amount(payment.getAmount())
+                .currency(payment.getCurrency())
+                .status(payment.getStatus())
+                .paymentTime(payment.getPaymentTime())
+                .build();
+    }
+}
+

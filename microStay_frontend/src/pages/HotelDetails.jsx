@@ -13,7 +13,10 @@ import {
   Baby,
   ShieldCheck,
   PawPrint,
-  CigaretteOff
+  CigaretteOff,
+  CreditCard,
+  IndianRupee,
+  RefreshCw
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
@@ -39,6 +42,28 @@ const HotelDetails = () => {
   const [comment, setComment] = useState("");
   const [rating, setRating] = useState(0);
   const [usernames, setUsernames] = useState({});
+
+  // Booking / payment flow state
+  const [selectedRoom, setSelectedRoom] = useState(null);
+  const [bookingForm, setBookingForm] = useState({
+    checkInDate: "",
+    checkOutDate: "",
+    rooms: 1,
+    adults: 2,
+    children: 0,
+    fullName: "",
+    email: "",
+    phone: "",
+  });
+  const [bookingResponse, setBookingResponse] = useState(null);
+  const [paymentResponse, setPaymentResponse] = useState(null);
+  const [bookingStatus, setBookingStatus] = useState(null);
+  const [latestPaymentStatus, setLatestPaymentStatus] = useState(null);
+  const [mockResult, setMockResult] = useState("SUCCESS");
+  const [bookingLoading, setBookingLoading] = useState(false);
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [statusLoading, setStatusLoading] = useState(false);
+  const [flowError, setFlowError] = useState("");
 
 
 
@@ -97,6 +122,150 @@ const HotelDetails = () => {
 
 
   const role = localStorage.getItem('role');
+
+  const handleRoomSelectForBooking = (room) => {
+    setSelectedRoom(room);
+    setBookingResponse(null);
+    setPaymentResponse(null);
+    setBookingStatus(null);
+    setLatestPaymentStatus(null);
+    setFlowError("");
+
+    const today = new Date();
+    const tomorrow = new Date();
+    tomorrow.setDate(today.getDate() + 1);
+
+    setBookingForm((prev) => ({
+      ...prev,
+      checkInDate: prev.checkInDate || today.toISOString().split('T')[0],
+      checkOutDate: prev.checkOutDate || tomorrow.toISOString().split('T')[0],
+    }));
+  };
+
+  const handleBookingFormChange = (e) => {
+    const { name, value } = e.target;
+    setBookingForm((prev) => ({
+      ...prev,
+      [name]: name === 'rooms' || name === 'adults' || name === 'children'
+        ? Number(value)
+        : value,
+    }));
+  };
+
+  const initiateBooking = async (e) => {
+    e.preventDefault();
+    if (!selectedRoom) {
+      setFlowError("Please select a room to book.");
+      return;
+    }
+    if (!bookingForm.checkInDate || !bookingForm.checkOutDate) {
+      setFlowError("Please select check-in and check-out dates.");
+      return;
+    }
+    if (!bookingForm.fullName || !bookingForm.email || !bookingForm.phone) {
+      setFlowError("Please fill guest name, email and phone.");
+      return;
+    }
+
+    setBookingLoading(true);
+    setFlowError("");
+
+    try {
+      const payload = {
+        hotelId: String(hotel.id),
+        hotelName: hotel.name,
+        checkInDate: bookingForm.checkInDate,
+        checkOutDate: bookingForm.checkOutDate,
+        rooms: [
+          {
+            roomId: String(selectedRoom.roomId),
+            roomType: selectedRoom.roomType,
+            pricePerNight: selectedRoom.pricing?.basePrice,
+            numberOfRooms: bookingForm.rooms,
+            adults: bookingForm.adults,
+            children: bookingForm.children,
+          },
+        ],
+        guestDetails: {
+          fullName: bookingForm.fullName,
+          email: bookingForm.email,
+          phone: bookingForm.phone,
+        },
+      };
+
+      const res = await api.post('/bookings/initiate', payload);
+      setBookingResponse(res.data);
+      setBookingStatus(null);
+      setLatestPaymentStatus(null);
+      setFlowError("");
+
+      // Persist for /bookings page
+      try {
+        sessionStorage.setItem('lastBooking', JSON.stringify(res.data));
+      } catch {
+        // ignore
+      }
+    } catch (err) {
+      console.error("Booking failed", err);
+
+      setFlowError(err.message || "Failed to create booking. Please try again.");
+    } finally {
+      setBookingLoading(false);
+    }
+  };
+
+  const performPayment = async () => {
+    if (!bookingResponse) {
+      setFlowError("Create a booking before making payment.");
+      return;
+    }
+    setPaymentLoading(true);
+    setFlowError("");
+    try {
+      const res = await api.post('/payments', {
+        bookingId: bookingResponse.bookingId,
+        amount: bookingResponse.totalAmount,
+        currency: bookingResponse.currency,
+        paymentGateway: "MOCK",
+        mockResult,
+      });
+      setPaymentResponse(res.data);
+
+      // Immediately refresh statuses so user sees CONFIRMED / INITIATED
+      await refreshStatuses(res.data.bookingId, bookingResponse.bookingReference);
+    } catch (err) {
+      console.error("Payment failed", err);
+      setFlowError(err.message || "Payment failed. Please try again.");
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
+  const refreshStatuses = async (
+    bookingIdOverride,
+    bookingRefOverride
+  ) => {
+    if (!bookingResponse && !bookingRefOverride) return;
+    const bookingRef = bookingRefOverride || bookingResponse.bookingReference;
+    const bookingId = bookingIdOverride || bookingResponse.bookingId;
+
+    setStatusLoading(true);
+    setFlowError("");
+
+    try {
+      const [bookingRes, paymentRes] = await Promise.all([
+        api.get(`/bookings/${bookingRef}`),
+        api.get(`/payments/booking/${bookingId}`),
+      ]);
+      setBookingStatus(bookingRes.data);
+      setLatestPaymentStatus(paymentRes.data);
+    } catch (err) {
+      console.error("Status fetch failed", err);
+      setFlowError(err.message || "Failed to fetch latest booking/payment status.");
+    } finally {
+      setStatusLoading(false);
+    }
+  };
 
   const submitReview = async (e) => {
     e.preventDefault();
@@ -282,7 +451,7 @@ const HotelDetails = () => {
                   key={room.roomId}
                   className="border border-gray-200 rounded-3xl p-6 mb-4 hover:border-blue-300 transition"
                 >
-                  <div className="flex justify-between items-start">
+                  <div className="flex justify-between items-start gap-6">
                     <div>
                       <h4 className="text-xl font-extrabold tracking-wide">
                         {room.roomType}
@@ -312,20 +481,333 @@ const HotelDetails = () => {
                       </div>
                     </div>
 
-                    <div className="text-right">
+                    <div className="text-right min-w-[180px]">
                       <p className="text-xs uppercase font-semibold text-slate-600">
                         Per Night
                       </p>
-                      <p className="text-3xl font-extrabold text-blue-700">
-                        ₹{room.pricing.basePrice}
+                      <p className="text-3xl font-extrabold text-blue-700 flex items-center justify-end gap-1">
+                        <IndianRupee size={18} />
+                        {room.pricing.basePrice}
                       </p>
-                      <button className="mt-4 bg-slate-900 text-white px-6 py-3 rounded-2xl font-bold hover:bg-blue-700 transition">
-                        Book Now
+                      <button
+                        className="mt-4 bg-slate-900 text-white px-6 py-3 rounded-2xl font-bold hover:bg-blue-700 transition"
+                        onClick={() => handleRoomSelectForBooking(room)}
+                      >
+                        {selectedRoom?.roomId === room.roomId ? 'Selected' : 'Book Now'}
                       </button>
                     </div>
                   </div>
                 </div>
               ))}
+            </div>
+
+            {/* BOOKING & PAYMENT FLOW */}
+            <div className="mt-10 border border-gray-200 rounded-3xl p-6 bg-gray-50">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-2xl font-extrabold text-slate-900 flex items-center gap-2">
+                  <CreditCard size={22} className="text-blue-600" />
+                  Book & Pay
+                </h3>
+                {bookingResponse && (
+                  <span className="text-xs font-semibold text-emerald-700 bg-emerald-100 px-3 py-1 rounded-full">
+                    Booking created: {bookingResponse.bookingReference}
+                  </span>
+                )}
+              </div>
+
+              {flowError && (
+                <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                  {flowError}
+                </div>
+              )}
+
+              {!selectedRoom && (
+                <p className="text-sm text-slate-600 mb-4">
+                  Select a room type above to start booking.
+                </p>
+              )}
+
+              {/* STEP 1 – BOOKING FORM */}
+              <form
+                onSubmit={initiateBooking}
+                className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${!selectedRoom ? 'opacity-60 pointer-events-none' : ''
+                  }`}
+              >
+                <div className="space-y-3">
+                  <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                    Step 1 · Stay Details
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-semibold text-slate-600">Check-In</label>
+                      <input
+                        type="date"
+                        name="checkInDate"
+                        value={bookingForm.checkInDate}
+                        onChange={handleBookingFormChange}
+                        className="mt-1 w-full rounded-2xl border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-200"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-slate-600">Check-Out</label>
+                      <input
+                        type="date"
+                        name="checkOutDate"
+                        value={bookingForm.checkOutDate}
+                        onChange={handleBookingFormChange}
+                        className="mt-1 w-full rounded-2xl border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-200"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="text-xs font-semibold text-slate-600">Rooms</label>
+                      <input
+                        type="number"
+                        min={1}
+                        name="rooms"
+                        value={bookingForm.rooms}
+                        onChange={handleBookingFormChange}
+                        className="mt-1 w-full rounded-2xl border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-200"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-slate-600">Adults</label>
+                      <input
+                        type="number"
+                        min={1}
+                        name="adults"
+                        value={bookingForm.adults}
+                        onChange={handleBookingFormChange}
+                        className="mt-1 w-full rounded-2xl border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-200"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-slate-600">Children</label>
+                      <input
+                        type="number"
+                        min={0}
+                        name="children"
+                        value={bookingForm.children}
+                        onChange={handleBookingFormChange}
+                        className="mt-1 w-full rounded-2xl border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-200"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                    Guest Details
+                  </p>
+
+                  <div>
+                    <label className="text-xs font-semibold text-slate-600">Full Name</label>
+                    <input
+                      type="text"
+                      name="fullName"
+                      value={bookingForm.fullName}
+                      onChange={handleBookingFormChange}
+                      className="mt-1 w-full rounded-2xl border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-200"
+                      placeholder="Primary guest name"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-semibold text-slate-600">Email</label>
+                      <input
+                        type="email"
+                        name="email"
+                        value={bookingForm.email}
+                        onChange={handleBookingFormChange}
+                        className="mt-1 w-full rounded-2xl border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-200"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-slate-600">Phone</label>
+                      <input
+                        type="tel"
+                        name="phone"
+                        value={bookingForm.phone}
+                        onChange={handleBookingFormChange}
+                        className="mt-1 w-full rounded-2xl border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-200"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={bookingLoading}
+                    className="mt-2 inline-flex items-center justify-center rounded-2xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white hover:bg-blue-700 transition disabled:opacity-60"
+                  >
+                    {bookingLoading ? 'Creating booking...' : 'Create Booking'}
+                  </button>
+                </div>
+              </form>
+
+              {/* STEP 2 – MOCK PAYMENT */}
+              <div
+                className={`mt-6 pt-4 border-t border-dashed border-gray-200 ${!bookingResponse ? 'opacity-60 pointer-events-none' : ''
+                  }`}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                    Step 2 · Mock Payment
+                  </p>
+                  {bookingResponse && (
+                    <div className="text-xs text-slate-600">
+                      Booking ID:
+                      <span className="font-semibold text-slate-900 ml-1">
+                        {bookingResponse.bookingId}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-slate-600">Mock result:</span>
+                    <div className="inline-flex rounded-full bg-white border border-gray-200 p-1">
+                      <button
+                        type="button"
+                        onClick={() => setMockResult("SUCCESS")}
+                        className={`px-3 py-1 text-xs font-semibold rounded-full ${mockResult === 'SUCCESS'
+                          ? 'bg-emerald-500 text-white'
+                          : 'text-slate-700'
+                          }`}
+                      >
+                        SUCCESS
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMockResult("FAILED")}
+                        className={`px-3 py-1 text-xs font-semibold rounded-full ${mockResult === 'FAILED'
+                          ? 'bg-red-500 text-white'
+                          : 'text-slate-700'
+                          }`}
+                      >
+                        FAILED
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={performPayment}
+                    disabled={paymentLoading}
+                    className="inline-flex items-center justify-center rounded-2xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-blue-700 transition disabled:opacity-60"
+                  >
+                    {paymentLoading ? 'Processing...' : 'Pay with Mock Gateway'}
+                  </button>
+
+                  {paymentResponse && (
+                    <span className="text-xs font-semibold rounded-full px-3 py-1 bg-slate-900 text-white flex items-center gap-1">
+                      Status:
+                      <span className="uppercase">
+                        {paymentResponse.status}
+                      </span>
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* STEP 3 – STATUS CHECK */}
+              <div
+                className={`mt-6 pt-4 border-t border-dashed border-gray-200 ${!bookingResponse ? 'opacity-60 pointer-events-none' : ''
+                  }`}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                    Step 3 · Status
+                  </p>
+                  {statusLoading && (
+                    <span className="text-xs text-slate-500 flex items-center gap-1">
+                      <RefreshCw size={14} className="animate-spin" /> Refreshing
+                    </span>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => refreshStatuses()}
+                  disabled={statusLoading}
+                  className="inline-flex items-center justify-center rounded-2xl border border-gray-300 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-gray-100 transition disabled:opacity-60"
+                >
+                  <RefreshCw size={14} className="mr-2" />
+                  Refresh booking & payment status
+                </button>
+
+                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <div className="bg-white rounded-2xl border border-gray-200 p-4">
+                    <p className="text-xs font-semibold text-slate-500 mb-1">
+                      Booking
+                    </p>
+                    {bookingStatus ? (
+                      <div>
+                        <p className="font-semibold text-slate-900">
+                          {bookingStatus.hotelName}
+                        </p>
+                        <p className="mt-1">
+                          Ref:
+                          <span className="font-mono text-xs ml-1">
+                            {bookingStatus.bookingReference}
+                          </span>
+                        </p>
+                        <p className="mt-1">
+                          Status:
+                          <span className="ml-1 font-semibold uppercase">
+                            {bookingStatus.status}
+                          </span>
+                        </p>
+                        <p className="mt-1 flex items-center gap-1">
+                          <IndianRupee size={14} />
+                          <span className="font-semibold">
+                            {bookingStatus.totalAmount} {bookingStatus.currency}
+                          </span>
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-slate-500">
+                        Status will appear here after refresh.
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="bg-white rounded-2xl border border-gray-200 p-4">
+                    <p className="text-xs font-semibold text-slate-500 mb-1">
+                      Payment
+                    </p>
+                    {latestPaymentStatus ? (
+                      <div>
+                        <p className="mt-1">
+                          Payment ID:
+                          <span className="font-mono text-xs ml-1">
+                            {latestPaymentStatus.paymentId}
+                          </span>
+                        </p>
+                        <p className="mt-1">
+                          Status:
+                          <span className="ml-1 font-semibold uppercase">
+                            {latestPaymentStatus.status}
+                          </span>
+                        </p>
+                        <p className="mt-1 flex items-center gap-1">
+                          <IndianRupee size={14} />
+                          <span className="font-semibold">
+                            {latestPaymentStatus.amount} {latestPaymentStatus.currency}
+                          </span>
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-slate-500">
+                        Status will appear here after refresh.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
 
           </div>

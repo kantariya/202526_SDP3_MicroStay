@@ -1,4 +1,4 @@
-package com.microstay.bookingService.entity;
+package com.microstay.paymentService.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
@@ -17,7 +17,7 @@ public class Payment {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long paymentId;
 
-    private String paymentGateway; // RAZORPAY
+    private String paymentGateway; // MOCK
     private String gatewayPaymentId;
     private String gatewayOrderId;
 
@@ -29,7 +29,7 @@ public class Payment {
 
     private LocalDateTime paymentTime;
 
-    @OneToOne
-    @JoinColumn(name = "booking_id")
-    private Booking booking;
+    @Column(name = "booking_id", nullable = false, unique = true)
+    private Long bookingId;
 }
+

@@ -48,6 +48,8 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
             newUser.setRole(Role.USER);
             newUser.setPassword(null);
             newUser.setGoogleUser(true);
+            newUser.setEmailVerified(true);
+            newUser.setTwoFactorEnabled(false);
             return userRepository.save(newUser);
         });
 

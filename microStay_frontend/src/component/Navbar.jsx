@@ -28,7 +28,7 @@ const Navbar = () => {
           <Link to="/" className="px-4 py-2 rounded-full text-sm font-semibold text-gray-600 hover:bg-white hover:text-blue-600 transition">
             Explore
           </Link>
-          <Link to="/bookings" className="px-4 py-2 rounded-full text-sm font-semibold text-gray-600 hover:bg-white hover:text-blue-600 transition">
+          <Link to="/my-bookings" className="px-4 py-2 rounded-full text-sm font-semibold text-gray-600 hover:bg-white hover:text-blue-600 transition">
             Bookings
           </Link>
           <Link to="/favourites" className="px-4 py-2 rounded-full text-sm font-semibold text-gray-600 hover:bg-white hover:text-blue-600 transition flex items-center gap-1">

@@ -9,6 +9,9 @@ spring:
     mongodb:
       uri: mongodb://localhost:27017/hotel_db
 
+  jackson:
+    time-zone: Asia/Kolkata
+
   security:
     oauth2:
       resourceserver:

@@ -6,11 +6,12 @@ import com.microstay.userService.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
-@RestController
+@Controller
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
 public class AuthController {
@@ -18,12 +19,34 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/register")
-    public ResponseEntity<Map<String, String>> register(@Valid @RequestBody RegisterRequest request) {
-        return ResponseEntity.ok(authService.register(request));
+    public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest r){
+        return ResponseEntity.ok(authService.register(r));
+    }
+
+    @GetMapping("/verify-email")
+    public ResponseEntity<?> verify(@RequestParam String token){
+        return ResponseEntity.ok(authService.verifyEmail(token));
     }
 
     @PostMapping("/login")
-    public ResponseEntity<Map<String, String>> login(@Valid @RequestBody LoginRequest request) {
-        return ResponseEntity.ok(authService.login(request));
+    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest r){
+        return ResponseEntity.ok(authService.login(r));
+    }
+
+    @PostMapping("/verify-otp")
+    public ResponseEntity<?> verifyOtp(
+            @RequestParam Long userId,
+            @RequestParam String otp){
+        return ResponseEntity.ok(authService.verifyOtp(userId, otp));
+    }
+
+    @PostMapping("/resend-verification")
+    public ResponseEntity<?> resendVerify(@RequestParam String email){
+        return ResponseEntity.ok(authService.resendVerification(email));
+    }
+
+    @PostMapping("/resend-otp")
+    public ResponseEntity<?> resendOtp(@RequestParam Long userId){
+        return ResponseEntity.ok(authService.resendOtp(userId));
     }
 }

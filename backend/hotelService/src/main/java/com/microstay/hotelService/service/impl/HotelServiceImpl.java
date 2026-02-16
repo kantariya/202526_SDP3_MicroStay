@@ -59,6 +59,7 @@ public class HotelServiceImpl implements HotelService {
     }
 
     @Override
+    @Transactional
     public Hotel createHotel(Hotel hotel) {
         hotel.setCreatedAt(Instant.now());
         hotel.setUpdatedAt(Instant.now());
@@ -66,6 +67,7 @@ public class HotelServiceImpl implements HotelService {
     }
 
     @Override
+    @Transactional
     public Hotel updateHotel(String hotelId, Hotel hotel) {
         Hotel existing = getHotelDetails(hotelId);
         hotel.setId(existing.getId());
@@ -75,6 +77,7 @@ public class HotelServiceImpl implements HotelService {
     }
 
     @Override
+    @Transactional
     public void deleteHotel(String hotelId) {
         hotelRepository.deleteById(hotelId);
     }
@@ -98,6 +101,8 @@ public class HotelServiceImpl implements HotelService {
         while (date.isBefore(request.getCheckOutDate())) {
 
             Availability availability = availabilityMap.get(date);
+
+            System.out.println("Checking availability for date: " + availability + " with date: " + date);
 
             // If date not present, assume full availability
             if (availability == null) {
@@ -141,9 +146,8 @@ public class HotelServiceImpl implements HotelService {
         );
     }
 
-
-
     @Override
+    @Transactional
     public AvailabilityResponse confirmBooking(ConfirmBookingRequest request) {
 
         Hotel hotel = getHotelDetails(request.getHotelId());
@@ -163,6 +167,9 @@ public class HotelServiceImpl implements HotelService {
 
             Availability availability = availabilityMap.get(date);
 
+            System.out.println("availablity : "+availability);
+            System.out.println("request :"+request);
+
             if (availability == null ||
                     availability.getAvailableRooms() < request.getRoomsRequired()) {
 
@@ -175,6 +182,8 @@ public class HotelServiceImpl implements HotelService {
             availability.setAvailableRooms(
                     availability.getAvailableRooms() - request.getRoomsRequired()
             );
+
+            System.out.println("Updated availability for date " + date + ": " + availability);
 
             // Price calculation
             boolean isWeekend =
@@ -198,40 +207,57 @@ public class HotelServiceImpl implements HotelService {
         );
     }
 
-
     @Transactional
     @Override
     public void releaseBooking(ConfirmBookingRequest request) {
 
+        log.info("Release booking {}", request);
+
         Hotel hotel = hotelRepository.findById(request.getHotelId())
-                .orElseThrow(() ->
-                        new IllegalArgumentException("Hotel not found"));
+                .orElseThrow(() -> new IllegalArgumentException("Hotel not found"));
 
         Room room = hotel.getRooms().stream()
                 .filter(r -> r.getRoomId().equals(request.getRoomId()))
                 .findFirst()
-                .orElseThrow(() ->
-                        new IllegalArgumentException("Room not found"));
+                .orElseThrow(() -> new IllegalArgumentException("Room not found"));
 
-        LocalDate currentDate = request.getCheckInDate();
-        LocalDate checkOutDate = request.getCheckOutDate();
+        Map<LocalDate, Availability> availabilityMap = getAvailabilityMap(room);
 
-        while (currentDate.isBefore(checkOutDate)) {
+        LocalDate date = request.getCheckInDate();
 
-            LocalDate finalCurrentDate = currentDate;
-            LocalDate finalCurrentDate1 = currentDate;
-            Availability availability = room.getAvailability().stream()
-                    .filter(a -> a.getDate().equals(finalCurrentDate))
-                    .findFirst()
-                    .orElseThrow(() ->
-                            new IllegalStateException(
-                                    "Availability not found for date: " + finalCurrentDate1));
+        while (date.isBefore(request.getCheckOutDate())) {
 
-            availability.setAvailableRooms(
-                    availability.getAvailableRooms() + request.getRoomsRequired()
-            );
+            Availability availability = availabilityMap.get(date);
 
-            currentDate = currentDate.plusDays(1);
+            // ✅ FIX — create if missing
+            if (availability == null) {
+                availability = new Availability(
+                        date,
+                        room.getInventory().getTotalRooms()
+                );
+                room.getAvailability().add(availability);
+                availabilityMap.put(date, availability);
+
+                log.warn("Created missing availability row for {}", date);
+            }
+
+            int newVal = availability.getAvailableRooms()
+                    + request.getRoomsRequired();
+
+            // ✅ double-release guard
+            if (newVal > room.getInventory().getTotalRooms()) {
+                log.warn("Release overflow prevented for {}", date);
+                newVal = room.getInventory().getTotalRooms();
+            }
+
+            availability.setAvailableRooms(newVal);
+
+            log.info("Released {} rooms for {} → now {}",
+                    request.getRoomsRequired(),
+                    date,
+                    newVal);
+
+            date = date.plusDays(1);
         }
 
         hotelRepository.save(hotel);
@@ -256,6 +282,7 @@ public class HotelServiceImpl implements HotelService {
         Map<LocalDate, Availability> map = new HashMap<>();
 
         for (Availability a : room.getAvailability()) {
+            System.out.println("Availability: "+a);
             map.put(a.getDate(), a);
         }
 

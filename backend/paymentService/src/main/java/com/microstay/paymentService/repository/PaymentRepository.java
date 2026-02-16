@@ -1,10 +1,13 @@
-package com.microstay.bookingService.repository;
+package com.microstay.paymentService.repository;
 
-import com.microstay.bookingService.entity.Payment;
+import com.microstay.paymentService.entity.Payment;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Optional;
+
 @Repository
 public interface PaymentRepository extends JpaRepository<Payment, Long> {
+    Optional<Payment> findByBookingId(Long bookingId);
 }
 

@@ -2,6 +2,7 @@ package com.microstay.bookingService.controller;
 
 import com.microstay.bookingService.dto.BookingResponse;
 import com.microstay.bookingService.dto.InitiateBookingRequest;
+import com.microstay.bookingService.dto.UserBookingsResponse;
 import com.microstay.bookingService.entity.Booking;
 import com.microstay.bookingService.service.BookingService;
 import jakarta.validation.Valid;
@@ -10,7 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/bookings")
+@RequestMapping("/api/bookings")
 @RequiredArgsConstructor
 public class BookingController {
 
@@ -37,10 +38,32 @@ public class BookingController {
         return ResponseEntity.ok().build();
     }
 
+
+
     @GetMapping("/{ref}")
     public ResponseEntity<Booking> getBooking(@PathVariable String ref) {
         return ResponseEntity.ok(
                 bookingService.getBooking(ref));
     }
+
+    @PostMapping("/{bookingId}/release-after-payment-failure")
+    public void releaseAfterPaymentFailure(@PathVariable Long bookingId) {
+        bookingService.releaseAfterPaymentFailure(bookingId);
+    }
+
+    @PostMapping("/{bookingId}/mark-payment-success")
+    public void markPaymentSuccess(@PathVariable Long bookingId) {
+        bookingService.markPaymentSuccess(bookingId);
+    }
+
+    @GetMapping("/my")
+    public ResponseEntity<UserBookingsResponse> myBookings(
+            @RequestHeader("X-User-Id") String userId) {
+
+        return ResponseEntity.ok(
+                bookingService.getBookingsForUser(userId));
+    }
+
+
 }
 

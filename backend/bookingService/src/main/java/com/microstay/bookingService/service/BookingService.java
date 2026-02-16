@@ -4,35 +4,46 @@ import com.microstay.bookingService.client.HotelServiceClient;
 import com.microstay.bookingService.dto.BookedRoomRequest;
 import com.microstay.bookingService.dto.BookingResponse;
 import com.microstay.bookingService.dto.InitiateBookingRequest;
+import com.microstay.bookingService.dto.UserBookingsResponse;
 import com.microstay.bookingService.entity.*;
 import com.microstay.bookingService.mapper.AvailabilityRequestMapper;
 import com.microstay.bookingService.repository.BookingRepository;
-import com.microstay.bookingService.repository.PaymentRepository;
 import com.microstay.contract.hotelContract.dto.AvailabilityRequest;
 import com.microstay.contract.hotelContract.dto.AvailabilityResponse;
 import com.microstay.contract.hotelContract.dto.ConfirmBookingRequest;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
+
+import static org.springframework.http.HttpStatus.BAD_REQUEST;
 
 @Service
 @RequiredArgsConstructor
 @Transactional
+@Slf4j
 public class BookingService {
 
     private final BookingRepository bookingRepository;
-    private final PaymentRepository paymentRepository;
     private final HotelServiceClient hotelClient;
 
     public BookingResponse initiateBooking(
             InitiateBookingRequest request,
             String userId
     ) {
+        if (request.getCheckInDate() != null
+                && request.getCheckOutDate() != null
+                && !request.getCheckOutDate().isAfter(request.getCheckInDate())) {
+            throw new ResponseStatusException(BAD_REQUEST, "checkOutDate must be after checkInDate");
+        }
 
         // Assume single room type for now
         BookedRoomRequest room = request.getRooms().get(0);
@@ -51,6 +62,8 @@ public class BookingService {
                         request.getHotelId(),
                         availabilityRequest
                 );
+
+        System.out.println("Availability response: " + availability);
 
         if (!availability.isAvailable()) {
             throw new IllegalStateException(availability.getMessage());
@@ -79,6 +92,11 @@ public class BookingService {
                 .bookingReference(bookingReference)
                 .userId(userId)
                 .hotelId(request.getHotelId())
+                .hotelName(
+                        request.getHotelName() != null && !request.getHotelName().isBlank()
+                                ? request.getHotelName()
+                                : "UNKNOWN"
+                )
                 .checkInDate(request.getCheckInDate())
                 .checkOutDate(request.getCheckOutDate())
                 .guestDetails(request.getGuestDetails())
@@ -101,20 +119,29 @@ public class BookingService {
                 .toList();
 
         booking.setRooms(bookedRooms);
+        booking.setTotalRooms(
+                bookedRooms.stream()
+                        .map(BookedRoom::getNumberOfRooms)
+                        .filter(n -> n != null)
+                        .mapToInt(Integer::intValue)
+                        .sum()
+        );
+        booking.setTotalGuests(
+                bookedRooms.stream()
+                        .mapToInt(r -> {
+                            int adults = r.getAdults() != null ? r.getAdults() : 0;
+                            int children = r.getChildren() != null ? r.getChildren() : 0;
+                            int rooms = r.getNumberOfRooms() != null ? r.getNumberOfRooms() : 0;
+                            return (adults + children) * rooms;
+                        })
+                        .sum()
+        );
+        booking.setPaymentDueTime(LocalDateTime.now().plusMinutes(15));
 
         bookingRepository.save(booking);
 
-        // 7️⃣ Create payment record
-        Payment payment = Payment.builder()
-                .booking(booking)
-                .amount(booking.getTotalAmount())
-                .currency(booking.getCurrency())
-                .status(PaymentStatus.CREATED)
-                .build();
-
-        paymentRepository.save(payment);
-
         return BookingResponse.builder()
+                .bookingId(booking.getBookingId())
                 .bookingReference(booking.getBookingReference())
                 .status(booking.getStatus())
                 .totalAmount(booking.getTotalAmount())
@@ -122,33 +149,70 @@ public class BookingService {
                 .build();
     }
 
+
+
     public void confirmBooking(String bookingReference) {
         Booking booking = getBooking(bookingReference);
         booking.setStatus(BookingStatus.CONFIRMED);
         booking.setUpdatedAt(LocalDateTime.now());
     }
 
+
+
+    @Transactional
     public void cancelBooking(String bookingReference) {
+
         Booking booking = getBooking(bookingReference);
 
-        BookedRoom bookedRoom = booking.getRooms().get(0);
+        // ✅ prevent double cancel
+        if (booking.getStatus().equals(BookingStatus.CANCELLED)) {
+            log.info("Booking already cancelled {}", bookingReference);
+            return;
+        }
 
-        ConfirmBookingRequest releaseRequest = new ConfirmBookingRequest();
-        releaseRequest.setHotelId(booking.getHotelId());
-        releaseRequest.setRoomId(bookedRoom.getRoomId());
-        releaseRequest.setCheckInDate(booking.getCheckInDate());
-        releaseRequest.setCheckOutDate(booking.getCheckOutDate());
-        releaseRequest.setRoomsRequired(bookedRoom.getNumberOfRooms());
-        releaseRequest.setBookingId(booking.getBookingReference());
+        // ✅ only allow cancel before check-in date
+        LocalDate today = LocalDate.now();
 
-        hotelClient.releaseRooms(
-                booking.getHotelId(),
-                releaseRequest
-        );
+        if (!booking.getCheckInDate().isAfter(today)) {
+            throw new RuntimeException(
+                    "Cannot cancel booking after or on check-in date");
+        }
 
+        log.info("Cancelling booking {}", bookingReference);
+
+        // ✅ release ALL rooms in booking
+        for (BookedRoom bookedRoom : booking.getRooms()) {
+
+            ConfirmBookingRequest releaseRequest =
+                    new ConfirmBookingRequest();
+
+            releaseRequest.setHotelId(booking.getHotelId());
+            releaseRequest.setRoomId(bookedRoom.getRoomId());
+            releaseRequest.setCheckInDate(booking.getCheckInDate());
+            releaseRequest.setCheckOutDate(booking.getCheckOutDate());
+            releaseRequest.setRoomsRequired(bookedRoom.getNumberOfRooms());
+            releaseRequest.setBookingId(booking.getBookingReference());
+
+            log.info("Releasing room {} count {}",
+                    bookedRoom.getRoomId(),
+                    bookedRoom.getNumberOfRooms());
+
+            // call hotel service to increase inventory
+            hotelClient.releaseRooms(
+                    booking.getHotelId(),
+                    releaseRequest
+            );
+        }
+
+        // ✅ update booking status
         booking.setStatus(BookingStatus.CANCELLED);
         booking.setUpdatedAt(LocalDateTime.now());
+
+        bookingRepository.save(booking);
+
+        log.info("Booking cancelled successfully {}", bookingReference);
     }
+
 
     public Booking getBooking(String bookingReference) {
         return bookingRepository.findByBookingReference(bookingReference)
@@ -162,10 +226,103 @@ public class BookingService {
     ) {
         return BookedRoom.builder()
                 .roomId(request.getRoomId())
+                .roomType(
+                        request.getRoomType() != null && !request.getRoomType().isBlank()
+                                ? request.getRoomType()
+                                : "STANDARD"
+                )
                 .numberOfRooms(request.getNumberOfRooms())
                 .adults(request.getAdults())
                 .children(request.getChildren())
+                .pricePerNight(request.getPricePerNight() != null ? request.getPricePerNight() : 0.0)
                 .booking(booking)
                 .build();
     }
+
+    @Transactional
+    public void releaseAfterPaymentFailure(Long bookingId) {
+
+        System.out.println("Releasing booking with ID " + bookingId + " due to payment failure");
+
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new RuntimeException("Booking not found"));
+
+        // ✅ prevent double release
+        if (booking.getStatus() != BookingStatus.INITIATED) {
+            return;
+        }
+
+        for (BookedRoom room : booking.getRooms()) {
+
+            System.out.println("Releasing booking " + booking.getBookingReference() + " for room " + room.getRoomId() + " due to payment failure");
+
+            ConfirmBookingRequest req = new ConfirmBookingRequest(
+                    booking.getHotelId(),
+                    room.getRoomId(),
+                    booking.getCheckInDate(),
+                    booking.getCheckOutDate(),
+                    room.getNumberOfRooms(),
+                    booking.getBookingReference()
+            );
+
+            hotelClient.releaseBooking(req);
+        }
+
+        booking.setStatus(BookingStatus.FAILED);
+        booking.setUpdatedAt(LocalDateTime.now());
+
+        bookingRepository.save(booking);
+    }
+
+    @Transactional
+    public void markPaymentSuccess(Long bookingId) {
+
+        log.info("markPaymentSuccess called for {}", bookingId);
+
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow();
+
+        System.out.println(booking);
+
+        if (booking.getStatus() != BookingStatus.INITIATED) {
+            return;
+        }
+
+        booking.setStatus(BookingStatus.CONFIRMED);
+        booking.setUpdatedAt(LocalDateTime.now());
+
+        bookingRepository.save(booking);
+    }
+
+    public UserBookingsResponse getBookingsForUser(String userId) {
+
+        List<Booking> bookings =
+                bookingRepository.findByUserIdOrderByCreatedAtDesc(userId);
+
+        LocalDate today = LocalDate.now();
+
+        long upcoming =
+                bookingRepository
+                        .countByUserIdAndCheckInDateGreaterThanEqualAndStatusNot(
+                                userId,
+                                today,
+                                BookingStatus.CANCELLED
+                        );
+
+        long past =
+                bookingRepository
+                        .countByUserIdAndCheckOutDateLessThan(
+                                userId,
+                                today
+                        );
+
+        return UserBookingsResponse.builder()
+                .bookings(bookings)
+                .upcomingCount(upcoming)
+                .pastCount(past)
+                .build();
+    }
+
+
+
 }

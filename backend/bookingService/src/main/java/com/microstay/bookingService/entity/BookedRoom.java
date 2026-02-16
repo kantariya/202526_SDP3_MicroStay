@@ -1,5 +1,6 @@
 package com.microstay.bookingService.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -9,6 +10,8 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@ToString(exclude = {"booking"})
+@EqualsAndHashCode(exclude = {"booking"})
 public class BookedRoom {
 
     @Id
@@ -26,5 +29,6 @@ public class BookedRoom {
 
     @ManyToOne
     @JoinColumn(name = "booking_id")
+    @JsonBackReference("booking-rooms")
     private Booking booking;
 }

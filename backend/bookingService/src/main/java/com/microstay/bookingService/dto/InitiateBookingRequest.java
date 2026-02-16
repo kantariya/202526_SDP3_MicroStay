@@ -16,6 +16,9 @@ public class InitiateBookingRequest {
     @NotBlank
     private String hotelId;
 
+    // Optional: for better frontend UX; defaults to "UNKNOWN" if omitted
+    private String hotelName;
+
     @NotNull
     private LocalDate checkInDate;
 

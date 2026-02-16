@@ -10,6 +10,8 @@ import HotelDetails from './pages/HotelDetails';
 import OAuthSuccess from './pages/oauthSuccess'
 import './index.css'
 import { ProtectedRoute, PublicRoute } from './layout/ProtectedRoute'
+import MyBookingsTab from './pages/MyBookingsTab';
+import FavoritesPage from './pages/FavoritesPage';
 
 function App() {
   return (
@@ -30,6 +32,8 @@ function App() {
               <Route path="/profile" element={<UserProfile />} />
               <Route path="/" element={<DashBoard />} />
               <Route path="/hotel/:hotelId" element={<HotelDetails />} />
+              <Route path="/my-bookings" element={<MyBookingsTab />} />
+              <Route path="/favourites" element={<FavoritesPage />} />
             </Route>
           </Route>
 

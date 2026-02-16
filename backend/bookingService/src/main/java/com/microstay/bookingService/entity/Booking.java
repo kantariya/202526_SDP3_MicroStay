@@ -1,5 +1,6 @@
 package com.microstay.bookingService.entity;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -13,6 +14,8 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@ToString(exclude = {"rooms"})
+@EqualsAndHashCode(exclude = {"rooms"})
 public class Booking {
 
     @Id
@@ -42,10 +45,10 @@ public class Booking {
     private BookingStatus status;
 
     @OneToMany(mappedBy = "booking", cascade = CascadeType.ALL)
+    @JsonManagedReference("booking-rooms")
     private List<BookedRoom> rooms;
 
-    @OneToOne(mappedBy = "booking", cascade = CascadeType.ALL)
-    private Payment payment;
+    private LocalDateTime paymentDueTime;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

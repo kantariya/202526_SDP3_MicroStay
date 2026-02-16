@@ -11,6 +11,11 @@ export default function Register() {
   const [countries, setCountries] = useState([]);
   const [isFetchingCountries, setIsFetchingCountries] = useState(true);
 
+  const [verifyPendingEmail, setVerifyPendingEmail] = useState(null);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendWait, setResendWait] = useState(0);
+
+
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -41,6 +46,13 @@ export default function Register() {
       })
       .catch(() => setIsFetchingCountries(false));
   }, []);
+
+  useEffect(() => {
+    if (resendWait <= 0) return;
+    const t = setTimeout(() => setResendWait(s => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendWait]);
+
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -139,15 +151,13 @@ export default function Register() {
       });
 
       // Send ONLY the fields the backend expects
-      const response = await api.post("/register/auth", registerData);
+      const response = await api.post("/auth/register", registerData);
 
-      if (response.data.token) {
-        localStorage.setItem("token", response.data.token);
-        if (response.data.role) {
-          localStorage.setItem("role", response.data.role);
-        }
-        navigate("/");
+      if (response.data.status === "VERIFY_REQUIRED") {
+          setVerifyPendingEmail(registerData.email);
+          return;
       }
+
     } catch (err) {
       console.error("Registration error:", err);
 
@@ -163,6 +173,27 @@ export default function Register() {
       setIsLoading(false);
     }
   };
+
+  const handleResendVerify = async () => {
+  if (!verifyPendingEmail) return;
+  setResendLoading(true);
+
+  try {
+    const res = await api.post("/auth/resend-verification", null, {
+      params: { email: verifyPendingEmail }
+    });
+
+    if (res.data.status === "WAIT") {
+      setResendWait(res.data.seconds || 60);
+    } else {
+      setResendWait(60);
+    }
+
+  } finally {
+    setResendLoading(false);
+  }
+};
+
 
   // Modern React-Select Styling
   const selectStyles = {
@@ -214,6 +245,55 @@ export default function Register() {
       },
     }),
   };
+
+  if (verifyPendingEmail) {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-[#f8fafc] p-4 font-sans relative overflow-hidden">
+
+      {/* keep your same blob background */}
+      <div className="absolute top-0 -left-4 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob"></div>
+      <div className="absolute top-0 -right-4 w-72 h-72 bg-indigo-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-2000"></div>
+
+      <div className="w-full max-w-xl bg-white/80 backdrop-blur-xl shadow-2xl rounded-[2.5rem] p-10 border border-white relative z-10 text-center">
+
+        <Mail className="h-12 w-12 text-indigo-600 mx-auto mb-4" />
+
+        <h2 className="text-2xl font-bold text-slate-900">
+          Verify your email
+        </h2>
+
+        <p className="text-slate-500 mt-3">
+          We sent a verification link to
+          <br />
+          <span className="font-semibold text-slate-800">
+            {verifyPendingEmail}
+          </span>
+        </p>
+
+        <button
+          onClick={handleResendVerify}
+          disabled={resendLoading || resendWait > 0}
+          className="mt-6 w-full bg-slate-900 text-white py-3 rounded-2xl font-bold disabled:opacity-60"
+        >
+          {resendLoading
+            ? "Sending..."
+            : resendWait > 0
+              ? `Resend in ${resendWait}s`
+              : "Resend verification email"}
+        </button>
+
+        <button
+          onClick={() => navigate("/login")}
+          className="mt-4 text-indigo-600 font-semibold hover:underline"
+        >
+          Go to Login
+        </button>
+
+      </div>
+    </div>
+  );
+}
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#f8fafc] p-4 font-sans relative overflow-hidden">

@@ -8,6 +8,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
@@ -63,6 +64,23 @@ public class User implements UserDetails {
 
     @Column(nullable = false)
     private boolean accountNonLocked = true;
+
+    @Column(nullable = false)
+    private boolean twoFactorEnabled = false;
+
+    @Column(nullable = false)
+    private boolean emailVerified = false;
+
+
+    // ================= BOOKING STATS =================
+
+    // total stays counter
+    @Column(nullable = false)
+    private Integer totalStays = 0;
+
+    // last booking timestamp
+    @Column(name = "last_booking_date")
+    private LocalDate lastBookingDate;
 
     // ================= TIMESTAMPS =================
 

@@ -6,6 +6,7 @@ import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.core.Ordered;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
@@ -21,19 +22,19 @@ public class JwtGatewayFilter implements GlobalFilter, Ordered {
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
 
         String path = exchange.getRequest().getURI().getPath();
+        HttpMethod method = exchange.getRequest().getMethod();
 
-        // ✅ BYPASS AUTH & PUBLIC ENDPOINTS
-        if (path.startsWith("/api/auth")) {
+        // ✅ ALWAYS allow CORS preflight
+        if (method == HttpMethod.OPTIONS) {
             return chain.filter(exchange);
         }
 
-        // (Optional) public hotel browsing
-        if (path.startsWith("/api/hotels")
-                && exchange.getRequest().getMethod().name().equals("GET")) {
+        // ✅ PUBLIC ENDPOINTS
+        if (isPublicEndpoint(path, method)) {
             return chain.filter(exchange);
         }
 
-
+        // 🔐 JWT REQUIRED BELOW
         String authHeader = exchange.getRequest()
                 .getHeaders()
                 .getFirst(HttpHeaders.AUTHORIZATION);
@@ -50,20 +51,38 @@ public class JwtGatewayFilter implements GlobalFilter, Ordered {
             return exchange.getResponse().setComplete();
         }
 
-        // (Optional) propagate user info downstream
+        // ✅ Inject identity headers for downstream services
         String userId = jwtUtils.extractUserId(token);
         String email = jwtUtils.extractEmail(token);
         String role = jwtUtils.extractRole(token);
 
-        ServerWebExchange mutatedExchange = exchange.mutate()
-                .request(builder -> builder
-                        .header("X-User-Id", userId)
-                        .header("X-User-Email", email)
-                        .header("X-User-Role", role)
-                )
+        ServerWebExchange mutated = exchange.mutate()
+                .request(r -> r.headers(h -> {
+                    h.set("X-User-Id", userId);
+                    h.set("X-User-Email", email);
+                    h.set("X-User-Role", role);
+                }))
                 .build();
 
-        return chain.filter(mutatedExchange);
+        return chain.filter(mutated);
+    }
+
+    private boolean isPublicEndpoint(String path, HttpMethod method) {
+
+        // auth
+        if (path.startsWith("/api/auth")) return true;
+
+        // hotel browsing
+        if (path.startsWith("/api/hotels") && method == HttpMethod.GET) return true;
+
+        // availability check (needed before login sometimes)
+        if (path.equals("/api/hotels/check-availability")) return true;
+
+        // hotel reviews read
+        if (path.matches("^/api/hotels/.*/reviews$") && method == HttpMethod.GET)
+            return true;
+
+        return false;
     }
 
     @Override

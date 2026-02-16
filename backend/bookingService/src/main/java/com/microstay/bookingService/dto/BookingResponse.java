@@ -8,6 +8,7 @@ import lombok.Data;
 @Builder
 public class BookingResponse {
 
+    private Long bookingId;
     private String bookingReference;
     private BookingStatus status;
     private Double totalAmount;

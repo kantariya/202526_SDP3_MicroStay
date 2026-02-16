@@ -5,6 +5,9 @@ spring:
   application:
     name: bookingService
 
+  jackson:
+    time-zone: Asia/Kolkata
+
   datasource:
     url: jdbc:mysql://localhost:3306/microstay_booking?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
     username: root
@@ -41,3 +44,17 @@ feign:
       default:
         connectTimeout: 5000
         readTimeout: 5000
+
+logging:
+  level:
+    # Shows the exact mapping of the incoming URL to your Controller
+    org.springframework.web: DEBUG
+
+    # Shows if the @PathVariable or @RequestBody binding is failing
+    org.springframework.web.servlet.mvc.method.annotation.ServletInvocableHandlerMethod: TRACE
+
+    # Shows if the @Transactional proxy is failing to start a database connection
+    org.springframework.transaction: DEBUG
+
+    # Shows security filter decisions (in case it's crashing during auth)
+    org.springframework.security: DEBUG
