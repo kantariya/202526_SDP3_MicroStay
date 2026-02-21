@@ -13,9 +13,17 @@ public interface HotelService {
 
     List<HotelCardResponse> getHotelCards(String city);
 
-    Hotel getHotelDetails(String hotelId);
+    List<Hotel> getHotelsByManagerId(String managerId);
 
-    Hotel createHotel(Hotel hotel);
+    List<Hotel> getAllHotels(String city, String status, String managerId); // Admin w/ filters
+
+    Hotel getHotelDetails(String hotelId, boolean includeInactiveRooms);
+
+    List<Hotel> getHotelsByStatus(String status);
+
+    Hotel updateHotelStatus(String hotelId, String status);
+
+    Hotel createHotel(Hotel hotel, String role, String userId);
 
     Hotel updateHotel(String hotelId, Hotel hotel);
 

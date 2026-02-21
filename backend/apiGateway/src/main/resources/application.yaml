@@ -49,15 +49,25 @@ spring:
           predicates:
             - Path=/api/hotels/**
 
-        - id: booking-service
+        - id: hotel-admin
+          uri: lb://HOTELSERVICE
+          predicates:
+            - Path=/api/admin/hotels/**, /api/admin/hotels, /api/admin/reviews/**, /api/admin/reviews
+
+        - id: booking-admin
           uri: lb://BOOKINGSERVICE
           predicates:
-            - Path=/api/bookings/**
+            - Path=/api/admin/bookings/**, /api/admin/bookings
 
-        - id: payment-service
+        - id: payment-admin
           uri: lb://PAYMENTSERVICE
           predicates:
-            - Path=/api/payments/**
+            - Path=/api/admin/payments/**, /api/admin/payments
+
+        - id: user-admin
+          uri: lb://USERSERVICE
+          predicates:
+            - Path=/api/admin/**
 
 
 eureka:

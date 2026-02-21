@@ -26,6 +26,8 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
 
                 .authorizeHttpRequests(auth -> auth
+
+                        // ✅ public endpoints
                         .requestMatchers(
                                 "/api/auth/**",
                                 "/oauth2/**",
@@ -33,15 +35,25 @@ public class SecurityConfig {
                                 "/actuator/**",
                                 "/error"
                         ).permitAll()
+
+                        // ✅ ADMIN only
+                        .requestMatchers("/admin/**")
+                        .hasRole("ADMIN")
+
+                        // ✅ MANAGER + ADMIN
+                                .requestMatchers("/manager/**")
+                                .hasAnyRole("ADMIN","HOTEL_MANAGER")
+
+                        // ✅ all others need login
                         .anyRequest().authenticated()
                 )
 
-                // 🔐 Google OAuth Login
+                // Google OAuth
                 .oauth2Login(oauth -> oauth
                         .successHandler(oAuth2SuccessHandler)
                 )
 
-                // 🔒 Stateless JWT
+                // JWT stateless
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
@@ -51,4 +63,5 @@ public class SecurityConfig {
 
         return http.build();
     }
+
 }

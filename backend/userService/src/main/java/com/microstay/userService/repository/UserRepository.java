@@ -1,5 +1,6 @@
 package com.microstay.userService.repository;
 
+import com.microstay.userService.entity.Role;
 import com.microstay.userService.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -11,4 +12,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByEmail(String email);
     boolean existsByEmail(String email);
     List<User> findByEmailVerifiedFalseAndCreatedAtBefore(LocalDateTime time);
+    long countByRole(Role role);
+    List<User> findByRole(Role role);
+
 }

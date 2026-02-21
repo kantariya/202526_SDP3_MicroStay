@@ -9,6 +9,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/bookings")
@@ -38,8 +39,6 @@ public class BookingController {
         return ResponseEntity.ok().build();
     }
 
-
-
     @GetMapping("/{ref}")
     public ResponseEntity<Booking> getBooking(@PathVariable String ref) {
         return ResponseEntity.ok(
@@ -59,11 +58,22 @@ public class BookingController {
     @GetMapping("/my")
     public ResponseEntity<UserBookingsResponse> myBookings(
             @RequestHeader("X-User-Id") String userId) {
-
+        // Enforced ownership by Design: userId comes from trusted header
         return ResponseEntity.ok(
                 bookingService.getBookingsForUser(userId));
     }
 
+    @GetMapping("/manager")
+    public ResponseEntity<List<Booking>> managerBookings(
+            @RequestHeader("X-User-Id") String userId) {
+        return ResponseEntity.ok(bookingService.getBookingsForManager(userId));
+    }
+
+    @GetMapping("/admin")
+    public ResponseEntity<List<Booking>> adminBookings(
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String hotelId) {
+        return ResponseEntity.ok(bookingService.getAllBookings(status, hotelId));
+    }
 
 }
-

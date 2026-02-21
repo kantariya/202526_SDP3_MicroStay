@@ -26,6 +26,8 @@ public class Hotel {
     private String description;
     private Integer starRating;
 
+    private String managerId;   // user-service userId
+
     private Location location;
     private Contact contact;
 

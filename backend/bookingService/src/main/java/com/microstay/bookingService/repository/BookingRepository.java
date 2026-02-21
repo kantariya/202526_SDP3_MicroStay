@@ -32,6 +32,19 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
             String userId,
             LocalDate date
     );
+    List<Booking> findByHotelIdIn(List<String> hotelIds);
+
+    List<Booking> findByHotelIdInAndStatusIn(
+            List<String> hotelIds,
+            List<BookingStatus> status
+    );
+
+
+    long countByHotelIdInAndCheckInDate(
+            List<String> hotelIds,
+            LocalDate date
+    );
+
 
 }
 

@@ -11,3 +11,4 @@ public class UserServiceApplication {
 	}
 
 }
+//docker run -d -p 6379:6379 --name redis-dev redis

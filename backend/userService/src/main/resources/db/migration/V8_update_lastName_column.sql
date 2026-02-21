@@ -1,0 +1,1 @@
+ALTER TABLE users MODIFY last_name VARCHAR(255) NULL;

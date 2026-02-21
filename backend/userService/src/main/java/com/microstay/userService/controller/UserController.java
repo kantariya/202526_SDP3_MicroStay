@@ -20,8 +20,7 @@ public class UserController {
     @GetMapping("/profile")
     public ResponseEntity<UserResponse> getMyProfile() {
 
-        Authentication authentication =
-                SecurityContextHolder.getContext().getAuthentication();
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
         if (authentication == null || authentication.getName() == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
@@ -48,7 +47,6 @@ public class UserController {
         return ResponseEntity.ok(response);
     }
 
-
     @GetMapping("/{userId}/username")
     public ResponseEntity<String> getUsername(@PathVariable Long userId) {
 
@@ -59,6 +57,5 @@ public class UserController {
 
         return ResponseEntity.ok(username);
     }
-
 
 }

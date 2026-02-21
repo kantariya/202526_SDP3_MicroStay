@@ -23,43 +23,39 @@ import static org.springframework.http.HttpStatus.NOT_FOUND;
 @RequiredArgsConstructor
 public class InternalBookingController {
 
-    private final BookingRepository bookingRepository;
+        private final BookingRepository bookingRepository;
 
-    @GetMapping("/{bookingId}")
-    public ResponseEntity<BookingPaymentInfoResponse> getBookingForPayment(
-            @PathVariable Long bookingId
-    ) {
-        Booking booking = bookingRepository.findById(bookingId)
-                .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Booking not found"));
+        @GetMapping("/{bookingId}")
+        public ResponseEntity<BookingPaymentInfoResponse> getBookingForPayment(
+                        @PathVariable Long bookingId) {
+                Booking booking = bookingRepository.findById(bookingId)
+                                .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Booking not found"));
 
-        return ResponseEntity.ok(
-                BookingPaymentInfoResponse.builder()
-                        .bookingId(booking.getBookingId())
-                        .bookingReference(booking.getBookingReference())
-                        .userId(booking.getUserId())
-                        .status(booking.getStatus())
-                        .totalAmount(booking.getTotalAmount())
-                        .currency(booking.getCurrency())
-                        .build()
-        );
-    }
-
-    @PostMapping("/{bookingId}/confirm")
-    public ResponseEntity<Void> confirmBookingAfterPayment(
-            @PathVariable Long bookingId
-    ) {
-        Booking booking = bookingRepository.findById(bookingId)
-                .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Booking not found"));
-
-        if (booking.getStatus().equals(BookingStatus.CANCELLED)) {
-            throw new ResponseStatusException(BAD_REQUEST, "Cannot confirm a cancelled booking");
+                return ResponseEntity.ok(
+                                BookingPaymentInfoResponse.builder()
+                                                .bookingId(booking.getBookingId())
+                                                .bookingReference(booking.getBookingReference())
+                                                .userId(booking.getUserId())
+                                                .status(booking.getStatus())
+                                                .totalAmount(booking.getTotalAmount())
+                                                .currency(booking.getCurrency())
+                                                .build());
         }
 
-        booking.setStatus(BookingStatus.CONFIRMED);
-        booking.setUpdatedAt(LocalDateTime.now());
-        bookingRepository.save(booking);
+        @PostMapping("/{bookingId}/confirm")
+        public ResponseEntity<Void> confirmBookingAfterPayment(
+                        @PathVariable Long bookingId) {
+                Booking booking = bookingRepository.findById(bookingId)
+                                .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Booking not found"));
 
-        return ResponseEntity.ok().build();
-    }
+                if (booking.getStatus().equals(BookingStatus.CANCELLED)) {
+                        throw new ResponseStatusException(BAD_REQUEST, "Cannot confirm a cancelled booking");
+                }
+
+                booking.setStatus(BookingStatus.CONFIRMED);
+                booking.setUpdatedAt(LocalDateTime.now());
+                bookingRepository.save(booking);
+
+                return ResponseEntity.ok().build();
+        }
 }
-

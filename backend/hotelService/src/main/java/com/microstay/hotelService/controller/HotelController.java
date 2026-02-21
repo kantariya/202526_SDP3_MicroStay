@@ -21,36 +21,83 @@ public class HotelController {
     // 1️⃣ Dashboard – minimal hotel cards
     @GetMapping
     public List<HotelCardResponse> getHotels(
-            @RequestParam(required = false) String city
-    ) {
+            @RequestParam(required = false) String city) {
         return hotelService.getHotelCards(city);
     }
 
     // 2️⃣ Hotel details page
     @GetMapping("/{hotelId}")
     public Hotel getHotelDetails(@PathVariable String hotelId) {
-        return hotelService.getHotelDetails(hotelId);
+        return hotelService.getHotelDetails(hotelId, false);
     }
 
     // 3️⃣ Create hotel (ADMIN / HOTEL_MANAGER)
     @PostMapping
-    public Hotel createHotel(@RequestBody Hotel hotel) {
-        return hotelService.createHotel(hotel);
+    public Hotel createHotel(
+            @RequestBody Hotel hotel,
+            @RequestHeader(value = "X-User-Role", defaultValue = "USER") String role,
+            @RequestHeader(value = "X-User-Id", required = false) String userId) {
+        return hotelService.createHotel(hotel, role, userId);
+    }
+
+    // --- Admin Approval Flow ---
+
+    @GetMapping("/pending")
+    public List<Hotel> getPendingHotels() {
+        return hotelService.getHotelsByStatus("PENDING");
+    }
+
+    @PutMapping("/{id}/approve")
+    public Hotel approveHotel(@PathVariable String id) {
+        return hotelService.updateHotelStatus(id, "ACTIVE");
+    }
+
+    @PutMapping("/{id}/reject")
+    public Hotel rejectHotel(@PathVariable String id) {
+        return hotelService.updateHotelStatus(id, "REJECTED");
     }
 
     // 4️⃣ Update hotel details
     @PutMapping("/{hotelId}")
     public Hotel updateHotel(
             @PathVariable String hotelId,
-            @RequestBody Hotel hotel
-    ) {
+            @RequestBody Hotel hotel,
+            @RequestHeader(value = "X-User-Role", defaultValue = "USER") String role,
+            @RequestHeader(value = "X-User-Id", required = false) String userId) {
+        // Ownership Check
+        if (!"ADMIN".equals(role)) {
+            Hotel existing = hotelService.getHotelDetails(hotelId, true);
+            if (!existing.getManagerId().equals(userId)) {
+                throw new RuntimeException("Access Denied: You do not own this hotel.");
+            }
+        }
+
         return hotelService.updateHotel(hotelId, hotel);
     }
 
-    // 5️⃣ Delete hotel (ADMIN only)
+    // 5️⃣ Delete hotel (ADMIN only or Manager owns?)
+    // Usually Delete is Admin only as per previous file comments, but if Manager
+    // can delete:
     @DeleteMapping("/{hotelId}")
-    public void deleteHotel(@PathVariable String hotelId) {
+    public void deleteHotel(
+            @PathVariable String hotelId,
+            @RequestHeader(value = "X-User-Role", defaultValue = "USER") String role,
+            @RequestHeader(value = "X-User-Id", required = false) String userId) {
+        if (!"ADMIN".equals(role)) {
+            Hotel existing = hotelService.getHotelDetails(hotelId, true);
+            if (!existing.getManagerId().equals(userId)) {
+                throw new RuntimeException("Access Denied");
+            }
+        }
         hotelService.deleteHotel(hotelId);
+    }
+
+    // --- Manager Specific ---
+
+    @GetMapping("/manager/my-hotels")
+    public List<Hotel> getMyHotels(
+            @RequestHeader(value = "X-User-Id") String userId) {
+        return hotelService.getHotelsByManagerId(userId);
     }
 
     @PostMapping("/check-availability")

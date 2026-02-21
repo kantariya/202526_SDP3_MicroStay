@@ -28,20 +28,23 @@ public class AuthService {
     private final RedisRateLimitService rateLimit;
     private final EmailTemplateService templates;
 
+    @Value("${app.frontend-url}")
+    private String frontendUrl;
+
     @Value("${app.base-url}")
     private String baseUrl;
 
     // ---------- REGISTER ----------
-    public Map<String,Object> register(RegisterRequest r){
+    public Map<String, Object> register(RegisterRequest r) {
 
         String emailAddr = r.getEmail().toLowerCase().trim();
 
         User user = repo.findByEmail(emailAddr).orElse(null);
 
-        if(user == null){
+        if (user == null) {
             user = new User();
             user.setEmail(emailAddr);
-        } else if(user.isEmailVerified()){
+        } else if (user.isEmailVerified()) {
             throw new RuntimeException("Email already registered");
         }
 
@@ -57,107 +60,106 @@ public class AuthService {
         repo.save(user);
 
         String token = verifyTokenService.create(user.getId());
-        String link = baseUrl + "/api/auth/verify-email?token=" + token;
+        String link = frontendUrl + "/verify-email?token=" + token;
 
         String html = templates.verifyTemplate(user.getFirstName(), link);
         emailService.sendHtml(user.getEmail(), "Verify Email", html);
 
         return Map.of(
-                "status","VERIFY_REQUIRED",
-                "message","Verification email sent"
-        );
+                "status", "VERIFY_REQUIRED",
+                "message", "Verification email sent");
     }
 
     // ---------- VERIFY ----------
-    public Map<String,String> verifyEmail(String token){
+    public Map<String, String> verifyEmail(String token) {
 
         Long id = verifyTokenService.get(token);
-        if(id == null) throw new RuntimeException("Token expired");
+        if (id == null)
+            throw new RuntimeException("Token expired");
 
         User u = repo.findById(id).orElseThrow();
         u.setEmailVerified(true);
         repo.save(u);
         verifyTokenService.delete(token);
 
-        return Map.of("status","VERIFIED");
+        return Map.of("status", "VERIFIED");
     }
 
     // ---------- LOGIN ----------
-    public Map<String,Object> login(LoginRequest r){
+    public Map<String, Object> login(LoginRequest r) {
 
         User u = repo.findByEmail(r.getEmail().toLowerCase())
                 .orElseThrow(() -> new RuntimeException("Invalid credentials"));
 
-        if(!u.isEmailVerified())
-            return Map.of("status","VERIFY_REQUIRED");
+        // ADMIN accounts skip email verification requirement
+        if (!u.isEmailVerified() && u.getRole() != com.microstay.userService.entity.Role.ADMIN)
+            return Map.of("status", "VERIFY_REQUIRED");
 
         authManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         r.getEmail(), r.getPassword()));
 
-        if(u.isTwoFactorEnabled() && !u.isGoogleUser()){
+        if (u.isTwoFactorEnabled() && !u.isGoogleUser()) {
             String otp = otpService.generate(u.getId());
 
             String html = templates.otpTemplate(u.getFirstName(), otp);
             emailService.sendHtml(u.getEmail(), "Login OTP", html);
 
             return Map.of(
-                    "status","OTP_REQUIRED",
-                    "userId",u.getId()
-            );
+                    "status", "OTP_REQUIRED",
+                    "userId", u.getId());
         }
 
         return issueJwt(u);
     }
 
-    public Map<String,Object> verifyOtp(Long id,String otp){
-        if(!otpService.verify(id,otp))
+    public Map<String, Object> verifyOtp(Long id, String otp) {
+        if (!otpService.verify(id, otp))
             throw new RuntimeException("Bad OTP");
         return issueJwt(repo.findById(id).orElseThrow());
     }
 
     // ---------- RESEND VERIFY ----------
-    public Map<String,Object> resendVerification(String email){
+    public Map<String, Object> resendVerification(String email) {
 
         User u = repo.findByEmail(email.toLowerCase())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        if(u.isEmailVerified())
-            return Map.of("status","ALREADY_VERIFIED");
+        if (u.isEmailVerified())
+            return Map.of("status", "ALREADY_VERIFIED");
 
-        if(!rateLimit.allow("resend:verify:"+u.getId(),60))
-            return Map.of("status","WAIT","seconds",60);
+        if (!rateLimit.allow("resend:verify:" + u.getId(), 60))
+            return Map.of("status", "WAIT", "seconds", 60);
 
         String token = verifyTokenService.create(u.getId());
-        String link = baseUrl+"/api/auth/verify-email?token="+token;
+        String link = baseUrl + "/api/auth/verify-email?token=" + token;
 
         String html = templates.verifyTemplate(u.getFirstName(), link);
-        emailService.sendHtml(u.getEmail(),"Verify Email",html);
+        emailService.sendHtml(u.getEmail(), "Verify Email", html);
 
-        return Map.of("status","SENT");
+        return Map.of("status", "SENT");
     }
 
     // ---------- RESEND OTP ----------
-    public Map<String,Object> resendOtp(Long userId){
+    public Map<String, Object> resendOtp(Long userId) {
 
         User u = repo.findById(userId).orElseThrow();
 
-        if(!rateLimit.allow("resend:otp:"+userId,60))
-            return Map.of("status","WAIT","seconds",60);
+        if (!rateLimit.allow("resend:otp:" + userId, 60))
+            return Map.of("status", "WAIT", "seconds", 60);
 
         String otp = otpService.generate(userId);
 
         String html = templates.otpTemplate(u.getFirstName(), otp);
-        emailService.sendHtml(u.getEmail(),"Login OTP",html);
+        emailService.sendHtml(u.getEmail(), "Login OTP", html);
 
-        return Map.of("status","SENT");
+        return Map.of("status", "SENT");
     }
 
-    private Map<String,Object> issueJwt(User u){
+    private Map<String, Object> issueJwt(User u) {
         return Map.of(
-                "status","SUCCESS",
-                "token",jwt.generateToken(u),
-                "role",u.getRole().name()
-        );
+                "status", "SUCCESS",
+                "token", jwt.generateToken(u),
+                "role", u.getRole().name());
     }
 }

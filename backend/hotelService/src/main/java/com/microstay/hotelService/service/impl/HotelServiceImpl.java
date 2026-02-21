@@ -30,14 +30,17 @@ public class HotelServiceImpl implements HotelService {
 
     @Override
     public List<HotelCardResponse> getHotelCards(String city) {
-        List<Hotel> hotels = city == null
-                ? hotelRepository.findAll()
-                : hotelRepository.findByLocation_City(city);
+        // Public search: Filter by ACTIVE only
+        // Strictly enforce status = ACTIVE
+        List<Hotel> hotels;
+        if (city != null && !city.isBlank()) {
+            hotels = hotelRepository.findByLocationCityContainingIgnoreCaseAndStatus(city, "ACTIVE");
+        } else {
+            hotels = hotelRepository.findByStatus("ACTIVE");
+        }
 
-        log.info("Hotel list: {}", hotels);
-
-        return hotels.stream().map(h ->
-                new HotelCardResponse(
+        return hotels.stream()
+                .map(h -> new HotelCardResponse(
                         h.getId(),
                         h.getName(),
                         h.getLocation().getCity(),
@@ -47,32 +50,105 @@ public class HotelServiceImpl implements HotelService {
                                 .map(r -> r.getPricing().getBasePrice())
                                 .min(Double::compareTo)
                                 .orElse(0.0),
-                        h.getImages().isEmpty() ? null : h.getImages().get(0)
-                )
-        ).toList();
+                        h.getImages().isEmpty() ? null : h.getImages().get(0)))
+                .toList();
     }
 
     @Override
-    public Hotel getHotelDetails(String hotelId) {
-        return hotelRepository.findById(hotelId)
+    public List<Hotel> getAllHotels(String city, String status, String managerId) {
+        // Dynamic admin filter using ExampleMatcher
+        Hotel probe = new Hotel();
+        if (status != null && !status.isBlank())
+            probe.setStatus(status);
+        if (managerId != null && !managerId.isBlank())
+            probe.setManagerId(managerId);
+
+        if (city != null && !city.isBlank()) {
+            Hotel.Location loc = new Hotel.Location();
+            loc.setCity(city);
+            probe.setLocation(loc);
+        }
+
+        org.springframework.data.domain.ExampleMatcher matcher = org.springframework.data.domain.ExampleMatcher
+                .matching()
+                .withIgnoreNullValues()
+                .withMatcher("status", match -> match.exact())
+                .withMatcher("managerId", match -> match.exact())
+                .withMatcher("location.city", match -> match.contains().ignoreCase());
+
+        return hotelRepository.findAll(org.springframework.data.domain.Example.of(probe, matcher));
+    }
+
+    @Override
+    public List<Hotel> getHotelsByManagerId(String managerId) {
+        return hotelRepository.findByManagerId(managerId);
+    }
+
+    @Override
+    public List<Hotel> getHotelsByStatus(String status) {
+        return hotelRepository.findByStatus(status);
+    }
+
+    @Override
+    public Hotel updateHotelStatus(String hotelId, String status) {
+        Hotel hotel = getHotelDetails(hotelId, true);
+        hotel.setStatus(status);
+        hotel.setUpdatedAt(Instant.now());
+        return hotelRepository.save(hotel);
+    }
+
+    @Override
+    public Hotel getHotelDetails(String hotelId, boolean includeInactiveRooms) {
+        Hotel hotel = hotelRepository.findById(hotelId)
                 .orElseThrow(() -> new RuntimeException("Hotel not found"));
+
+        if (!includeInactiveRooms && hotel.getRooms() != null) {
+            // Filter inactive rooms
+            List<Room> activeRooms = hotel.getRooms().stream()
+                    .filter(r -> Boolean.TRUE.equals(r.getActive()))
+                    .toList();
+            hotel.setRooms(activeRooms);
+        }
+
+        return hotel;
     }
 
     @Override
     @Transactional
-    public Hotel createHotel(Hotel hotel) {
+    public Hotel createHotel(Hotel hotel, String role, String userId) {
         hotel.setCreatedAt(Instant.now());
         hotel.setUpdatedAt(Instant.now());
+        hotel.setManagerId(userId);
+
+        if ("ADMIN".equals(role)) {
+            hotel.setStatus("ACTIVE");
+        } else {
+            hotel.setStatus("PENDING");
+        }
+
         return hotelRepository.save(hotel);
     }
 
     @Override
     @Transactional
     public Hotel updateHotel(String hotelId, Hotel hotel) {
-        Hotel existing = getHotelDetails(hotelId);
+        Hotel existing = getHotelDetails(hotelId, true);
+
+        // Note: Ownership check should ideally be here if we pass userId/role to this
+        // method
+        // But Controller can also handle it / pass context.
+        // For now, we assume Controller might validate or we update signature.
+
         hotel.setId(existing.getId());
         hotel.setCreatedAt(existing.getCreatedAt());
         hotel.setUpdatedAt(Instant.now());
+
+        // Maintain critical fields if not provided
+        if (hotel.getStatus() == null)
+            hotel.setStatus(existing.getStatus());
+        if (hotel.getManagerId() == null)
+            hotel.setManagerId(existing.getManagerId());
+
         return hotelRepository.save(hotel);
     }
 
@@ -85,7 +161,7 @@ public class HotelServiceImpl implements HotelService {
     @Override
     public AvailabilityResponse checkAvailability(AvailabilityRequest request) {
 
-        Hotel hotel = getHotelDetails(request.getHotelId());
+        Hotel hotel = getHotelDetails(request.getHotelId(), true);
         Room room = getRoom(hotel, request.getRoomId());
         Map<LocalDate, Availability> availabilityMap = getAvailabilityMap(room);
 
@@ -93,10 +169,9 @@ public class HotelServiceImpl implements HotelService {
 
         double totalAmount = 0.0;
         double basePrice = room.getPricing().getBasePrice();
-        double weekendMultiplier =
-                room.getPricing().getWeekendMultiplier() != null
-                        ? room.getPricing().getWeekendMultiplier()
-                        : 1.0;
+        double weekendMultiplier = room.getPricing().getWeekendMultiplier() != null
+                ? room.getPricing().getWeekendMultiplier()
+                : 1.0;
 
         while (date.isBefore(request.getCheckOutDate())) {
 
@@ -108,8 +183,7 @@ public class HotelServiceImpl implements HotelService {
             if (availability == null) {
                 availability = new Availability(
                         date,
-                        room.getInventory().getTotalRooms()
-                );
+                        room.getInventory().getTotalRooms());
                 room.getAvailability().add(availability);
                 availabilityMap.put(date, availability);
             }
@@ -119,13 +193,11 @@ public class HotelServiceImpl implements HotelService {
                         false,
                         "Rooms not available on " + date,
                         null,
-                        room.getPricing().getCurrency()
-                );
+                        room.getPricing().getCurrency());
             }
 
             // Price calculation (weekend handling)
-            boolean isWeekend =
-                    date.getDayOfWeek().getValue() >= 6; // Sat/Sun
+            boolean isWeekend = date.getDayOfWeek().getValue() >= 6; // Sat/Sun
 
             double priceForDay = basePrice *
                     (isWeekend ? weekendMultiplier : 1.0);
@@ -142,15 +214,14 @@ public class HotelServiceImpl implements HotelService {
                 true,
                 "Rooms available",
                 totalAmount,
-                room.getPricing().getCurrency()
-        );
+                room.getPricing().getCurrency());
     }
 
     @Override
     @Transactional
     public AvailabilityResponse confirmBooking(ConfirmBookingRequest request) {
 
-        Hotel hotel = getHotelDetails(request.getHotelId());
+        Hotel hotel = getHotelDetails(request.getHotelId(), true);
         Room room = getRoom(hotel, request.getRoomId());
         Map<LocalDate, Availability> availabilityMap = getAvailabilityMap(room);
 
@@ -158,36 +229,32 @@ public class HotelServiceImpl implements HotelService {
 
         double totalAmount = 0.0;
         double basePrice = room.getPricing().getBasePrice();
-        double weekendMultiplier =
-                room.getPricing().getWeekendMultiplier() != null
-                        ? room.getPricing().getWeekendMultiplier()
-                        : 1.0;
+        double weekendMultiplier = room.getPricing().getWeekendMultiplier() != null
+                ? room.getPricing().getWeekendMultiplier()
+                : 1.0;
 
         while (date.isBefore(request.getCheckOutDate())) {
 
             Availability availability = availabilityMap.get(date);
 
-            System.out.println("availablity : "+availability);
-            System.out.println("request :"+request);
+            System.out.println("availablity : " + availability);
+            System.out.println("request :" + request);
 
             if (availability == null ||
                     availability.getAvailableRooms() < request.getRoomsRequired()) {
 
                 throw new IllegalStateException(
-                        "Booking failed. Availability mismatch on " + date
-                );
+                        "Booking failed. Availability mismatch on " + date);
             }
 
             // Decrement inventory
             availability.setAvailableRooms(
-                    availability.getAvailableRooms() - request.getRoomsRequired()
-            );
+                    availability.getAvailableRooms() - request.getRoomsRequired());
 
             System.out.println("Updated availability for date " + date + ": " + availability);
 
             // Price calculation
-            boolean isWeekend =
-                    date.getDayOfWeek().getValue() >= 6;
+            boolean isWeekend = date.getDayOfWeek().getValue() >= 6;
 
             double priceForDay = basePrice *
                     (isWeekend ? weekendMultiplier : 1.0);
@@ -203,8 +270,7 @@ public class HotelServiceImpl implements HotelService {
                 true,
                 "Booking confirmed",
                 totalAmount,
-                room.getPricing().getCurrency()
-        );
+                room.getPricing().getCurrency());
     }
 
     @Transactional
@@ -233,8 +299,7 @@ public class HotelServiceImpl implements HotelService {
             if (availability == null) {
                 availability = new Availability(
                         date,
-                        room.getInventory().getTotalRooms()
-                );
+                        room.getInventory().getTotalRooms());
                 room.getAvailability().add(availability);
                 availabilityMap.put(date, availability);
 
@@ -263,7 +328,6 @@ public class HotelServiceImpl implements HotelService {
         hotelRepository.save(hotel);
     }
 
-
     // ---------------- HELPERS ----------------
 
     private Room getRoom(Hotel hotel, String roomId) {
@@ -282,12 +346,11 @@ public class HotelServiceImpl implements HotelService {
         Map<LocalDate, Availability> map = new HashMap<>();
 
         for (Availability a : room.getAvailability()) {
-            System.out.println("Availability: "+a);
+            System.out.println("Availability: " + a);
             map.put(a.getDate(), a);
         }
 
         return map;
     }
-
 
 }

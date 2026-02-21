@@ -4,7 +4,6 @@ import com.microstay.userService.entity.Role;
 import com.microstay.userService.entity.User;
 import com.microstay.userService.repository.UserRepository;
 import com.microstay.userService.util.JwtUtils;
-import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -26,8 +25,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
     public void onAuthenticationSuccess(
             HttpServletRequest request,
             HttpServletResponse response,
-            Authentication authentication
-    ) throws IOException {
+            Authentication authentication) throws IOException {
 
         OAuth2User oAuth2User = (OAuth2User) authentication.getPrincipal();
 
@@ -62,8 +60,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         // 🔑 Generate JWT
         String token = jwtUtils.generateToken(user);
 
-        String redirectUrl =
-                "http://localhost:5173/oauth-success?token=" + token;
+        String redirectUrl = "http://localhost:5173/oauth-success?token=" + token;
 
         response.sendRedirect(redirectUrl);
     }

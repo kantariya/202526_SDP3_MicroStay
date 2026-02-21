@@ -13,3 +13,4 @@ public class BookingServiceApplication {
 	}
 
 }
+//docker run -d -p 6379:6379 --name redis-dev redis

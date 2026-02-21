@@ -16,8 +16,11 @@ public class ReviewServiceImpl implements ReviewService {
     private final ReviewRepository reviewRepository;
 
     @Override
-    public List<HotelReview> getReviews(String hotelId) {
-        return reviewRepository.findByHotelId(hotelId);
+    public List<HotelReview> getReviews(String hotelId, String role) {
+        if ("ADMIN".equals(role) || "HOTEL_MANAGER".equals(role)) {
+            return reviewRepository.findByHotelId(hotelId);
+        }
+        return reviewRepository.findByHotelIdAndHiddenFalse(hotelId);
     }
 
     @Override

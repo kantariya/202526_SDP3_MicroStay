@@ -40,21 +40,33 @@ public class JwtGatewayFilter implements GlobalFilter, Ordered {
                 .getFirst(HttpHeaders.AUTHORIZATION);
 
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
-            return exchange.getResponse().setComplete();
+            return onError(exchange, HttpStatus.UNAUTHORIZED);
         }
 
         String token = authHeader.substring(7);
 
         if (!jwtUtils.isTokenValid(token)) {
-            exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
-            return exchange.getResponse().setComplete();
+            return onError(exchange, HttpStatus.UNAUTHORIZED);
         }
 
         // ✅ Inject identity headers for downstream services
         String userId = jwtUtils.extractUserId(token);
         String email = jwtUtils.extractEmail(token);
-        String role = jwtUtils.extractRole(token);
+        String role = jwtUtils.extractRole(token); // e.g. "ROLE_ADMIN" or "ADMIN"
+
+        // 🛡️ ROLE BASED ACCESS CONTROL (RBAC)
+        if (path.startsWith("/api/admin")) {
+            if (!"ADMIN".equalsIgnoreCase(role) && !"ROLE_ADMIN".equalsIgnoreCase(role)) {
+                return onError(exchange, HttpStatus.FORBIDDEN);
+            }
+        }
+
+        if (path.startsWith("/api/manager")) {
+            if (!"ADMIN".equalsIgnoreCase(role) && !"ROLE_ADMIN".equalsIgnoreCase(role)
+                    && !"HOTEL_MANAGER".equalsIgnoreCase(role) && !"ROLE_HOTEL_MANAGER".equalsIgnoreCase(role)) {
+                return onError(exchange, HttpStatus.FORBIDDEN);
+            }
+        }
 
         ServerWebExchange mutated = exchange.mutate()
                 .request(r -> r.headers(h -> {
@@ -67,16 +79,32 @@ public class JwtGatewayFilter implements GlobalFilter, Ordered {
         return chain.filter(mutated);
     }
 
+    private Mono<Void> onError(ServerWebExchange exchange, HttpStatus status) {
+        exchange.getResponse().setStatusCode(status);
+        return exchange.getResponse().setComplete();
+    }
+
     private boolean isPublicEndpoint(String path, HttpMethod method) {
 
-        // auth
-        if (path.startsWith("/api/auth")) return true;
+        // explicitly public
+        if (path.startsWith("/public"))
+            return true;
 
-        // hotel browsing
-        if (path.startsWith("/api/hotels") && method == HttpMethod.GET) return true;
+        // auth
+        if (path.startsWith("/api/auth"))
+            return true;
+
+        // hotel browsing - User side
+        if (path.startsWith("/api/hotels") && method == HttpMethod.GET)
+            return true;
+
+        // Rooms browsing under a hotel
+        if (path.matches("^/api/hotels/.*/rooms.*") && method == HttpMethod.GET)
+            return true;
 
         // availability check (needed before login sometimes)
-        if (path.equals("/api/hotels/check-availability")) return true;
+        if (path.contains("/check-availability"))
+            return true;
 
         // hotel reviews read
         if (path.matches("^/api/hotels/.*/reviews$") && method == HttpMethod.GET)

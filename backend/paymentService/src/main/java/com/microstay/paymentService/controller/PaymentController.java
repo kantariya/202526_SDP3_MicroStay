@@ -22,19 +22,33 @@ public class PaymentController {
     @PostMapping
     public ResponseEntity<PaymentResponse> pay(
             @Valid @RequestBody PaymentRequest request,
-            @RequestHeader(value = "X-User-Id", required = false) String userId
-    ) {
+            @RequestHeader(value = "X-User-Id", required = false) String userId) {
         return ResponseEntity.ok(paymentService.createMockPayment(request, userId));
     }
 
     @GetMapping("/{paymentId}")
-    public ResponseEntity<PaymentResponse> getById(@PathVariable Long paymentId) {
-        return ResponseEntity.ok(paymentService.getById(paymentId));
+    public ResponseEntity<PaymentResponse> getById(
+            @PathVariable Long paymentId,
+            @RequestHeader(value = "X-User-Id", required = false) String userId) {
+        return ResponseEntity.ok(paymentService.getById(paymentId, userId));
     }
 
     @GetMapping("/booking/{bookingId}")
-    public ResponseEntity<PaymentResponse> getByBookingId(@PathVariable Long bookingId) {
-        return ResponseEntity.ok(paymentService.getByBookingId(bookingId));
+    public ResponseEntity<PaymentResponse> getByBookingId(
+            @PathVariable Long bookingId,
+            @RequestHeader(value = "X-User-Id", required = false) String userId) {
+        return ResponseEntity.ok(paymentService.getByBookingId(bookingId, userId));
+    }
+
+    @GetMapping("/my-payments")
+    public ResponseEntity<java.util.List<PaymentResponse>> myPayments(
+            @RequestHeader("X-User-Id") String userId) {
+        return ResponseEntity.ok(paymentService.getPaymentsForUser(userId));
+    }
+
+    @GetMapping("/manager-payments")
+    public ResponseEntity<java.util.List<PaymentResponse>> managerPayments(
+            @RequestHeader("X-User-Id") String userId) {
+        return ResponseEntity.ok(paymentService.getPaymentsForManager(userId));
     }
 }
-

@@ -3,6 +3,8 @@ package com.microstay.hotelService.controller;
 import com.microstay.contract.hotelContract.dto.AvailabilityRequest;
 import com.microstay.contract.hotelContract.dto.AvailabilityResponse;
 import com.microstay.contract.hotelContract.dto.ConfirmBookingRequest;
+import com.microstay.hotelService.entity.Hotel;
+import com.microstay.hotelService.repository.HotelRepository;
 import com.microstay.hotelService.service.HotelService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,11 +17,20 @@ import org.springframework.web.bind.annotation.*;
 public class InternalHotelController {
 
     private final HotelService hotelService;
+    private final HotelRepository HotelRepository;
 
     /**
      * STEP 1: Booking Service checks availability
      * No inventory update happens here
      */
+
+    @GetMapping("/{id}/manager")
+    public String getManagerId(@PathVariable String id) {
+        return HotelRepository.findById(id)
+                .map(Hotel::getManagerId)
+                .orElseThrow();
+    }
+
     @PostMapping("/{hotelId}/availability/check")
     public AvailabilityResponse checkAvailability(
             @PathVariable String hotelId,

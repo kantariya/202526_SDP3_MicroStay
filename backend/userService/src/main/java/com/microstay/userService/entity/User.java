@@ -71,6 +71,8 @@ public class User implements UserDetails {
     @Column(nullable = false)
     private boolean emailVerified = false;
 
+    private boolean enabled = true;
+
 
     // ================= BOOKING STATS =================
 
@@ -130,6 +132,10 @@ public class User implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return true;
+        return enabled;
+    }
+
+    public void SetEnabled(boolean enabled) {
+        this.enabled = enabled;
     }
 }

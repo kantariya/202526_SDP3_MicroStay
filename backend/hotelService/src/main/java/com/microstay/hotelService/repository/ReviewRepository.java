@@ -10,5 +10,10 @@ public interface ReviewRepository extends MongoRepository<HotelReview, String> {
 
     List<HotelReview> findByHotelId(String hotelId);
 
+    List<HotelReview> findByHotelIdAndHiddenFalse(String hotelId);
+
+    Optional<HotelReview> findByHotelIdAndUserId(String hotelId, String userId);
+
     Optional<HotelReview> findByIdAndUserId(String id, String userId);
+
 }

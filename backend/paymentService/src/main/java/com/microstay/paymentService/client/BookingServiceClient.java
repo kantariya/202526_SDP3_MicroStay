@@ -18,7 +18,14 @@ public interface BookingServiceClient {
     @PostMapping("/api/bookings/{bookingId}/release-after-payment-failure")
     void releaseAfterPaymentFailure(@PathVariable Long bookingId);
 
+    @GetMapping("/api/bookings/my")
+    com.microstay.paymentService.dto.UserBookingsResponse getUserBookings(
+            @org.springframework.web.bind.annotation.RequestHeader("X-User-Id") String userId);
+
+    @GetMapping("/api/bookings/manager")
+    java.util.List<BookingPaymentInfoResponse> getManagerBookings(
+            @org.springframework.web.bind.annotation.RequestHeader("X-User-Id") String userId);
+
     @PostMapping("/api/bookings/{bookingId}/mark-payment-success")
     void markPaymentSuccess(@PathVariable Long bookingId);
 }
-

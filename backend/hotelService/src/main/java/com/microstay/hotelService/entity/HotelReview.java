@@ -24,5 +24,7 @@ public class HotelReview {
     private Double rating;   // 1.0 to 5.0
     private String comment;  // review text
 
+    private boolean hidden = false;
+
     private Instant createdAt;
 }

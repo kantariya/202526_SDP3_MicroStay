@@ -30,7 +30,6 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final BookingServiceClient bookingServiceClient;
 
-
     public PaymentResponse createMockPayment(PaymentRequest request, String userIdHeader) {
 
         Long bookingId = request.getBookingId(); // ✅ ensure Long type
@@ -82,10 +81,9 @@ public class PaymentService {
         }
 
         // ✅ decide mock result
-        PaymentStatus status =
-                "SUCCESS".equalsIgnoreCase(request.getMockResult())
-                        ? PaymentStatus.SUCCESS
-                        : PaymentStatus.FAILED;
+        PaymentStatus status = "SUCCESS".equalsIgnoreCase(request.getMockResult())
+                ? PaymentStatus.SUCCESS
+                : PaymentStatus.FAILED;
 
         // ✅ create payment record
         Payment payment = Payment.builder()
@@ -108,11 +106,12 @@ public class PaymentService {
             if (status == PaymentStatus.SUCCESS) {
                 bookingServiceClient.markPaymentSuccess(bookingId);
             } else {
-                System.out.println("Payment failed for booking " + bookingId + ", notifying booking service to release");
+                System.out
+                        .println("Payment failed for booking " + bookingId + ", notifying booking service to release");
                 bookingServiceClient.releaseAfterPaymentFailure(bookingId);
             }
 
-        }  catch (Exception ex) {
+        } catch (Exception ex) {
             // do NOT fail payment record — log only
             log.error("Booking service callback failed for booking {}", bookingId, ex);
         }
@@ -120,17 +119,41 @@ public class PaymentService {
         return toResponse(payment);
     }
 
-
-    public PaymentResponse getById(Long paymentId) {
+    public PaymentResponse getById(Long paymentId, String userId) {
         Payment payment = paymentRepository.findById(paymentId)
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Payment not found"));
+
+        verifyOwnership(payment.getBookingId(), userId);
+
         return toResponse(payment);
     }
 
-    public PaymentResponse getByBookingId(Long bookingId) {
+    public PaymentResponse getByBookingId(Long bookingId, String userId) {
         Payment payment = paymentRepository.findByBookingId(bookingId)
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Payment not found for booking"));
+
+        verifyOwnership(bookingId, userId);
+
         return toResponse(payment);
+    }
+
+    private void verifyOwnership(Long bookingId, String userId) {
+        if (userId == null)
+            return; // public/system call? or maybe throw error. For now, strict if userId provided.
+        // If we want to strictly enforce, we should require userId.
+
+        try {
+            BookingPaymentInfoResponse booking = bookingServiceClient.getBookingForPayment(bookingId);
+            if (!userId.equals(booking.getUserId())) {
+                throw new ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN, "Access Denied");
+            }
+        } catch (Exception e) {
+            // If booking service down or booking not found, determining ownership is hard.
+            // Fail safe:
+            log.error("Could not verify booking ownership for payment lookup", e);
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Verification failed");
+        }
     }
 
     private PaymentResponse toResponse(Payment payment) {
@@ -146,5 +169,39 @@ public class PaymentService {
                 .paymentTime(payment.getPaymentTime())
                 .build();
     }
-}
 
+    public java.util.List<PaymentResponse> getPaymentsForUser(String userId) {
+        // 1. Get user bookings
+        com.microstay.paymentService.dto.UserBookingsResponse response = bookingServiceClient.getUserBookings(userId);
+
+        if (response == null || response.getBookings() == null || response.getBookings().isEmpty()) {
+            return java.util.List.of();
+        }
+
+        java.util.List<Long> bookingIds = response.getBookings().stream()
+                .map(com.microstay.paymentService.dto.BookingPaymentInfoResponse::getBookingId)
+                .toList();
+
+        return paymentRepository.findByBookingIdIn(bookingIds).stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    public java.util.List<PaymentResponse> getPaymentsForManager(String userId) {
+        // 1. Get manager bookings (which are already filtered by owned hotels)
+        java.util.List<com.microstay.paymentService.dto.BookingPaymentInfoResponse> bookings = bookingServiceClient
+                .getManagerBookings(userId);
+
+        if (bookings == null || bookings.isEmpty()) {
+            return java.util.List.of();
+        }
+
+        java.util.List<Long> bookingIds = bookings.stream()
+                .map(com.microstay.paymentService.dto.BookingPaymentInfoResponse::getBookingId)
+                .toList();
+
+        return paymentRepository.findByBookingIdIn(bookingIds).stream()
+                .map(this::toResponse)
+                .toList();
+    }
+}

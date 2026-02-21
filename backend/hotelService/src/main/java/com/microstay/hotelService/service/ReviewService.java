@@ -6,7 +6,7 @@ import java.util.List;
 
 public interface ReviewService {
 
-    List<HotelReview> getReviews(String hotelId);
+    List<HotelReview> getReviews(String hotelId, String role);
 
     HotelReview addReview(String hotelId, String userId, HotelReview review);
 
@@ -14,4 +14,3 @@ public interface ReviewService {
 
     void deleteReview(String reviewId, String userId, String role);
 }
-

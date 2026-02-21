@@ -14,43 +14,39 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ReviewController {
 
-    private final ReviewService reviewService;
+        private final ReviewService reviewService;
 
-    @GetMapping
-    public ResponseEntity<List<HotelReview>> getReviews(
-            @PathVariable String hotelId
-    ) {
-        return ResponseEntity.ok(reviewService.getReviews(hotelId));
-    }
+        @GetMapping
+        public ResponseEntity<List<HotelReview>> getReviews(
+                        @PathVariable String hotelId,
+                        @RequestHeader(value = "X-User-Role", defaultValue = "USER") String role) {
+                return ResponseEntity.ok(reviewService.getReviews(hotelId, role));
+        }
 
-    @PostMapping
-    public ResponseEntity<HotelReview> addReview(
-            @PathVariable String hotelId,
-            @RequestHeader("X-User-Id") String userId,
-            @RequestBody HotelReview review
-    ) {
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(reviewService.addReview(hotelId, userId, review));
-    }
+        @PostMapping
+        public ResponseEntity<HotelReview> addReview(
+                        @PathVariable String hotelId,
+                        @RequestHeader("X-User-Id") String userId,
+                        @RequestBody HotelReview review) {
+                return ResponseEntity.status(HttpStatus.CREATED)
+                                .body(reviewService.addReview(hotelId, userId, review));
+        }
 
-    @PutMapping("/{reviewId}")
-    public ResponseEntity<HotelReview> updateReview(
-            @PathVariable String reviewId,
-            @RequestHeader("X-User-Id") String userId,
-            @RequestBody HotelReview review
-    ) {
-        return ResponseEntity.ok(
-                reviewService.updateReview(reviewId, userId, review)
-        );
-    }
+        @PutMapping("/{reviewId}")
+        public ResponseEntity<HotelReview> updateReview(
+                        @PathVariable String reviewId,
+                        @RequestHeader("X-User-Id") String userId,
+                        @RequestBody HotelReview review) {
+                return ResponseEntity.ok(
+                                reviewService.updateReview(reviewId, userId, review));
+        }
 
-    @DeleteMapping("/{reviewId}")
-    public ResponseEntity<Void> deleteReview(
-            @PathVariable String reviewId,
-            @RequestHeader("X-User-Id") String userId,
-            @RequestHeader("X-User-Role") String role
-    ) {
-        reviewService.deleteReview(reviewId, userId, role);
-        return ResponseEntity.noContent().build();
-    }
+        @DeleteMapping("/{reviewId}")
+        public ResponseEntity<Void> deleteReview(
+                        @PathVariable String reviewId,
+                        @RequestHeader("X-User-Id") String userId,
+                        @RequestHeader("X-User-Role") String role) {
+                reviewService.deleteReview(reviewId, userId, role);
+                return ResponseEntity.noContent().build();
+        }
 }
