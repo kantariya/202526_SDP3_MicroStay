@@ -1,18 +1,22 @@
 server:
   port: 8084
 
+
 spring:
   application:
     name: paymentService
 
+
   jackson:
     time-zone: Asia/Kolkata
+
 
   datasource:
     url: jdbc:mysql://localhost:3306/microstay_payment?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
     username: root
     password: ""
     driver-class-name: com.mysql.cj.jdbc.Driver
+
 
   jpa:
     hibernate:
@@ -23,12 +27,14 @@ spring:
         format_sql: true
         dialect: org.hibernate.dialect.MySQLDialect
 
+
   flyway:
     enabled: true
     baseline-on-migrate: true
     locations: classpath:db/migration
     validate-on-migrate: true
     clean-disabled: true
+
 
 eureka:
   client:
@@ -38,6 +44,7 @@ eureka:
   instance:
     prefer-ip-address: true
 
+
 feign:
   client:
     config:
@@ -46,16 +53,21 @@ feign:
         readTimeout: 5000
 
 
+
+
 logging:
   level:
     # Shows the exact mapping of the incoming URL to your Controller
     org.springframework.web: DEBUG
 
+
     # Shows if the @PathVariable or @RequestBody binding is failing
     org.springframework.web.servlet.mvc.method.annotation.ServletInvocableHandlerMethod: TRACE
 
+
     # Shows if the @Transactional proxy is failing to start a database connection
     org.springframework.transaction: DEBUG
+
 
     # Shows security filter decisions (in case it's crashing during auth)
     org.springframework.security: DEBUG

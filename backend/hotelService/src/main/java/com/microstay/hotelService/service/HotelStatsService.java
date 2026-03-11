@@ -1,5 +1,6 @@
 package com.microstay.hotelService.service;
 
+import com.microstay.hotelService.entity.HotelStatus;
 import com.microstay.hotelService.repository.HotelRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -15,7 +16,7 @@ public class HotelStatsService {
         return hotelRepository.count();
     }
 
-    public Long countHotelsByStatus(String status) {
+    public Long countHotelsByStatus(HotelStatus status) {
         return hotelRepository.countByStatus(status);
     }
 }

@@ -40,7 +40,7 @@ export default function BookingsPage() {
     for (const id of ids) {
       if (!hotelData[id]) {
         try {
-          const res = await api.get(`/hotels/\${id}`);
+          const res = await api.get(`/hotels/${id}`);
           hotelData[id] = res.data;
         } catch (err) {
           // ignore
@@ -58,7 +58,7 @@ export default function BookingsPage() {
   async function handleConfirmCancel() {
     if (!bookingToCancel) return;
     try {
-      await api.post(`/bookings/\${bookingToCancel}/cancel`);
+      await api.post(`/bookings/${bookingToCancel}/cancel`);
       alert("Booking cancelled successfully.");
       fetchBookings();
     } catch (err) {
@@ -105,7 +105,7 @@ export default function BookingsPage() {
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 rounded-full text-xs font-bold transition whitespace-nowrap \${
+              className={`px-4 py-2 rounded-full text-xs font-bold transition whitespace-nowrap ${
                     activeTab === tab 
                     ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' 
                     : 'bg-white text-slate-600 hover:bg-gray-100 border border-gray-200'

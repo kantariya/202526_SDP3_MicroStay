@@ -36,7 +36,7 @@ const LoadingSkeleton = ({ type = "card", count = 1 }) => {
     );
 
     return (
-        <div className={`grid gap-6 \${type === 'card' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'}`}>
+        <div className={`grid gap-6 ${type === 'card' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'}`}>
             {[...Array(count)].map((_, i) => (
                 <React.Fragment key={i}>
                     {type === 'card' && <SkeletonCard />}

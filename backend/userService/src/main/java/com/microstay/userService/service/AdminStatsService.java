@@ -1,57 +1,46 @@
 package com.microstay.userService.service;
 
+import com.microstay.userService.client.BookingClient;
+import com.microstay.userService.client.HotelClient;
 import com.microstay.userService.dto.AdminStatsResponse;
 import com.microstay.userService.entity.Role;
 import com.microstay.userService.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
+
+import java.util.function.Supplier;
 
 @Service
 @RequiredArgsConstructor
 public class AdminStatsService {
 
     private final UserRepository userRepository;
-    private final RestTemplate restTemplate;
+    private final HotelClient hotelClient;
+    private final BookingClient bookingClient;
 
     public AdminStatsResponse getAdminStats() {
 
         long totalUsers = userRepository.countByRole(Role.USER);
         long totalManagers = userRepository.countByRole(Role.HOTEL_MANAGER);
 
-        Long hotels = 0L;
-        Long pendingHotels = 0L;
-        Long bookings = 0L;
-
-        try {
-            hotels = restTemplate.getForObject(
-                    "http://HOTEL-SERVICE/internal/stats/count",
-                    Long.class);
-        } catch (Exception e) {
-            System.out.println("Hotel service total count failed");
-        }
-
-        try {
-            pendingHotels = restTemplate.getForObject(
-                    "http://HOTEL-SERVICE/internal/stats/count?status=PENDING",
-                    Long.class);
-        } catch (Exception e) {
-            System.out.println("Hotel service pending count failed");
-        }
-
-        try {
-            bookings = restTemplate.getForObject(
-                    "http://BOOKING-SERVICE/internal/stats/count",
-                    Long.class);
-        } catch (Exception e) {
-            System.out.println("Booking service failed");
-        }
+        Long hotels = safeCall(() -> hotelClient.countHotels());
+        Long pendingHotels = safeCall(() -> hotelClient.countHotelsByStatus("PENDING"));
+        Long bookings = safeCall(() -> bookingClient.countBookings());
 
         return new AdminStatsResponse(
                 totalUsers,
                 totalManagers,
-                hotels != null ? hotels : 0L,
-                pendingHotels != null ? pendingHotels : 0L,
-                bookings != null ? bookings : 0L);
+                hotels,
+                pendingHotels,
+                bookings);
+    }
+
+    private Long safeCall(Supplier<Long> supplier) {
+        try {
+            return supplier.get();
+        } catch (Exception e) {
+            System.out.println("Error calling external service: " + e.getMessage());
+            return 0L;
+        }
     }
 }

@@ -26,8 +26,12 @@ public class Booking {
 
     private String userId; // from JWT (API Gateway)
 
-    @Embedded
-    private GuestDetails guestDetails;
+    @ElementCollection
+    @CollectionTable(
+            name = "booking_guests",
+            joinColumns = @JoinColumn(name = "booking_id")
+    )
+    private List<GuestDetails> guestDetails;
 
     private String hotelId;
     private String hotelName;

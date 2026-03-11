@@ -36,6 +36,9 @@ public class SecurityConfig {
                                 "/error"
                         ).permitAll()
 
+                        //  internal endpoints for inter-service communication
+                        .requestMatchers("/internal/**").permitAll()
+
                         // ✅ ADMIN only
                         .requestMatchers("/admin/**")
                         .hasRole("ADMIN")

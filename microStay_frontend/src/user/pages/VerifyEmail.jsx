@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "../../utils/api";
 import { Loader2 } from "lucide-react";
+import { useRef } from "react";
 
 export default function VerifyEmail() {
 
@@ -10,7 +11,13 @@ export default function VerifyEmail() {
 
   const [status, setStatus] = useState("loading");
 
+
+
+  const hasVerified = useRef(false);
+
   useEffect(() => {
+    if (hasVerified.current) return;
+    hasVerified.current = true;
 
     const token = search.get("token");
 
@@ -22,9 +29,8 @@ export default function VerifyEmail() {
     const verify = async () => {
       try {
         const res = await api.get("/auth/verify-email", {
-            params: { token }
+          params: { token }
         });
-
 
         if (res.data.status === "VERIFIED") {
           setStatus("success");
@@ -33,16 +39,14 @@ export default function VerifyEmail() {
             navigate("/login");
           }, 2000);
         }
-
       } catch {
         setStatus("error");
       }
     };
 
     verify();
-
   }, []);
-
+  
   // ---------- UI ----------
 
   return (

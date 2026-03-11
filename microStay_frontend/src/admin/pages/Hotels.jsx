@@ -7,29 +7,44 @@ import HotelDetails from '../components/HotelDetails';
 const Hotels = () => {
     const [hotels, setHotels] = useState([]);
     const [managers, setManagers] = useState([]);
-const [selectedHotel, setSelectedHotel] = useState(null);
+    const [selectedHotel, setSelectedHotel] = useState(null);
     const [loading, setLoading] = useState(true);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [selectedManager, setSelectedManager] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
-    const [cityFilter, setCityFilter] = useState('');
+    const [nameSearch, setNameSearch] = useState('');
+    const [page, setPage] = useState(0);
+    const [size, setSize] = useState(10);
+    const [totalPages, setTotalPages] = useState(0);
+
+    const [sortBy, setSortBy] = useState('name');
+    const [direction, setDirection] = useState('asc');
 
     // Start with just fetching hotels
     useEffect(() => {
         fetchHotels();
         fetchManagers();
-    }, [statusFilter, cityFilter, selectedManager]);
+    }, [statusFilter, selectedManager, nameSearch, page, sortBy, direction]);
 
     const fetchHotels = async () => {
         setLoading(true);
         try {
-            const params = {};
+            const params = {
+                page,
+                size,
+                sortBy,
+                direction
+            };
+
             if (statusFilter) params.status = statusFilter;
-            if (cityFilter) params.city = cityFilter;
             if (selectedManager) params.managerId = selectedManager;
+            if (nameSearch) params.nameSearch = nameSearch;
 
             const response = await api.get('/admin/hotels', { params });
-            setHotels(response.data);
+
+            setHotels(response.data.content);
+            setTotalPages(response.data.totalPages);
+
         } catch (error) {
             console.error("Error fetching hotels:", error);
         } finally {
@@ -62,7 +77,6 @@ const [selectedHotel, setSelectedHotel] = useState(null);
     };
 
     const handleAssignManager = async (hotelId, managerId) => {
-        if (!managerId) return;
         try {
             await api.put(`/admin/hotels/${hotelId}/manager`, null, {
                 params: { managerId }
@@ -83,10 +97,13 @@ const [selectedHotel, setSelectedHotel] = useState(null);
                     <Search size={18} className="text-slate-400 mr-2" />
                     <input
                         type="text"
-                        placeholder="Filter by City..."
+                        placeholder="Search by Name..."
                         className="bg-transparent border-none focus:outline-none text-slate-200 text-sm w-full placeholder-slate-500"
-                        value={cityFilter}
-                        onChange={(e) => setCityFilter(e.target.value)}
+                        value={nameSearch}
+                        onChange={(e) => {
+                            setPage(0);
+                            setNameSearch(e.target.value);
+                        }}
                     />
                 </div>
 
@@ -101,6 +118,24 @@ const [selectedHotel, setSelectedHotel] = useState(null);
                         <option value="PENDING">Pending</option>
                         <option value="INACTIVE">Inactive</option>
                         <option value="REJECTED">Rejected</option>
+                    </select>
+
+                    <select
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value)}
+                        className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-slate-200 text-sm"
+                    >
+                        <option value="name">Sort by Name</option>
+                        <option value="createdAt">Sort by Created Date</option>
+                    </select>
+
+                    <select
+                        value={direction}
+                        onChange={(e) => setDirection(e.target.value)}
+                        className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-slate-200 text-sm"
+                    >
+                        <option value="asc">Asc</option>
+                        <option value="desc">Desc</option>
                     </select>
 
                     <select
@@ -176,9 +211,12 @@ const [selectedHotel, setSelectedHotel] = useState(null);
                                                     value={hotel.managerId || ""}
                                                     onChange={(e) => handleAssignManager(hotel.id, e.target.value)}
                                                 >
-                                                    <option value="" disabled>Select Manager</option>
+                                                    <option value="">No Manager</option>
+
                                                     {managers.map(m => (
-                                                        <option key={m.id} value={m.id}>{m.firstName} {m.lastName} ({m.email})</option>
+                                                        <option key={m.id} value={m.id}>
+                                                            {m.firstName} {m.lastName}
+                                                        </option>
                                                     ))}
                                                 </select>
                                             </div>
@@ -187,17 +225,23 @@ const [selectedHotel, setSelectedHotel] = useState(null);
                                             {new Date(hotel.createdAt).toLocaleDateString()}
                                         </td>
                                         <td className="p-4">
+                                            {hotel.status === 'ACTIVE' || hotel.status === 'INACTIVE' ? (
                                             <button
                                                 onClick={() => handleStatusToggle(hotel)}
-                                                className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold transition-colors \${
+                                                className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold transition-colors ${
                                                     hotel.status === 'ACTIVE' 
                                                         ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30' 
                                                         : 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
                                                 }`}
                                             >
                                                 {hotel.status === 'ACTIVE' ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
-                                                {hotel.status}
+                                                {hotel.status}  
                                             </button>
+                                            ) : (
+                                                <span className="ml-2 px-3 py-1 rounded-full text-xs font-bold bg-yellow-500/20 text-yellow-400">
+                                                    {hotel.status}
+                                                </span>
+                                            )}
                                         </td>
                                         <td className="p-4 text-right">
                                             <button
@@ -213,6 +257,29 @@ const [selectedHotel, setSelectedHotel] = useState(null);
                             )}
                         </tbody>
                     </table>
+
+                    {/* Pagination */}
+                    <div className="flex justify-between items-center p-4">
+                        <button
+                            disabled={page === 0}
+                            onClick={() => setPage(prev => prev - 1)}
+                            className="px-3 py-1 bg-slate-700 rounded disabled:opacity-50"
+                        >
+                            Previous
+                        </button>
+
+                        <span className="text-slate-400 text-sm">
+                            Page {page + 1} of {totalPages}
+                        </span>
+
+                        <button
+                            disabled={page + 1 >= totalPages}
+                            onClick={() => setPage(prev => prev + 1)}
+                            className="px-3 py-1 bg-slate-700 rounded disabled:opacity-50"
+                        >
+                            Next
+                        </button>
+                    </div>
                 </div>
             </div>
 

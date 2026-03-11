@@ -5,10 +5,14 @@ import com.microstay.contract.hotelContract.dto.AvailabilityResponse;
 import com.microstay.contract.hotelContract.dto.ConfirmBookingRequest;
 import com.microstay.hotelService.dto.HotelCardResponse;
 import com.microstay.hotelService.entity.Hotel;
+import com.microstay.hotelService.entity.HotelStatus;
+import com.microstay.hotelService.entity.RoomType;
 import com.microstay.hotelService.service.HotelService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -18,11 +22,54 @@ public class HotelController {
 
     private final HotelService hotelService;
 
+
+    @GetMapping("/search")
+    public Page<Hotel> searchHotels(
+
+            @RequestParam(required = false) String city,
+            @RequestParam(required = false) LocalDate checkIn,
+            @RequestParam(required = false) LocalDate checkOut,
+
+            @RequestParam(required = false) Double minPrice,
+            @RequestParam(required = false) Double maxPrice,
+
+            @RequestParam(required = false) Integer starRating,
+            @RequestParam(required = false) RoomType roomType,
+            @RequestParam(required = false) List<String> facilities,
+
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+
+            @RequestParam(defaultValue = "") String sortDirection
+    ) {
+
+        return hotelService.searchHotels(
+                city,
+                checkIn,
+                checkOut,
+                minPrice,
+                maxPrice,
+                starRating,
+                roomType,
+                facilities,
+                page,
+                size,
+                sortDirection
+        );
+    }
+
     // 1️⃣ Dashboard – minimal hotel cards
     @GetMapping
     public List<HotelCardResponse> getHotels(
             @RequestParam(required = false) String city) {
         return hotelService.getHotelCards(city);
+    }
+
+
+
+    @GetMapping("/{hotelId}/card")
+    public HotelCardResponse getHotelCard(@PathVariable String hotelId) {
+        return hotelService.getHotelCardById(hotelId);
     }
 
     // 2️⃣ Hotel details page
@@ -44,17 +91,17 @@ public class HotelController {
 
     @GetMapping("/pending")
     public List<Hotel> getPendingHotels() {
-        return hotelService.getHotelsByStatus("PENDING");
+        return hotelService.getHotelsByStatus(HotelStatus.PENDING);
     }
 
     @PutMapping("/{id}/approve")
     public Hotel approveHotel(@PathVariable String id) {
-        return hotelService.updateHotelStatus(id, "ACTIVE");
+        return hotelService.updateHotelStatus(id, HotelStatus.ACTIVE);
     }
 
     @PutMapping("/{id}/reject")
     public Hotel rejectHotel(@PathVariable String id) {
-        return hotelService.updateHotelStatus(id, "REJECTED");
+        return hotelService.updateHotelStatus(id, HotelStatus.INACTIVE);
     }
 
     // 4️⃣ Update hotel details

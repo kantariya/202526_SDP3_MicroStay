@@ -47,4 +47,10 @@ public class AdminController {
                 adminService.disableManager(id));
     }
 
+    @PutMapping("/managers/{id}/enable")
+    public ResponseEntity<?> enableManager(@PathVariable String id) {
+        return ResponseEntity.ok(
+                adminService.enableManager(id));
+    }
+
 }

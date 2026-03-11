@@ -1,15 +1,19 @@
 server:
   port: 8080
 
+
 spring:
   application:
     name: apiGateway
 
+
   main:
     web-application-type: reactive
 
+
   cloud:
     gateway:
+
 
       # ✅ FIXED GLOBAL CORS CONFIG
       globalcors:
@@ -21,16 +25,19 @@ spring:
               - GET
               - POST
               - PUT
+              - PATCH
               - DELETE
               - OPTIONS
             allowedHeaders:
               - "*"
             allowCredentials: true
 
+
       discovery:
         locator:
           enabled: true
           lower-case-service-id: true
+
 
       # ✅ FIXED ROUTES
       routes:
@@ -39,35 +46,61 @@ spring:
           predicates:
             - Path=/api/auth/**
 
+
         - id: user-api
           uri: lb://USERSERVICE
           predicates:
             - Path=/api/users/**
+
 
         - id: hotel-service
           uri: lb://HOTELSERVICE
           predicates:
             - Path=/api/hotels/**
 
+
         - id: hotel-admin
           uri: lb://HOTELSERVICE
           predicates:
             - Path=/api/admin/hotels/**, /api/admin/hotels, /api/admin/reviews/**, /api/admin/reviews
+
+        - id: hotel-manager
+          uri: lb://HOTELSERVICE
+          predicates:
+            - Path=/api/manager/hotels/**, /api/manager/hotels, /api/manager/reviews/**, /api/manager/reviews
+
+        - id: booking
+          uri: lb://BOOKINGSERVICE
+          predicates:
+            - Path=/api/bookings/**, /api/bookings
 
         - id: booking-admin
           uri: lb://BOOKINGSERVICE
           predicates:
             - Path=/api/admin/bookings/**, /api/admin/bookings
 
+        - id: booking-manager
+          uri: lb://BOOKINGSERVICE
+          predicates:
+            - Path=/api/manager/bookings/**, /api/manager/bookings , /api/manager/revenue/**, /api/manager/revenue
+
+        - id: payment-admin
+          uri: lb://PAYMENTSERVICE
+          predicates:
+            - Path=/api/payments/**, /api/payments
+
         - id: payment-admin
           uri: lb://PAYMENTSERVICE
           predicates:
             - Path=/api/admin/payments/**, /api/admin/payments
 
+
         - id: user-admin
           uri: lb://USERSERVICE
           predicates:
             - Path=/api/admin/**
+
+
 
 
 eureka:
@@ -77,10 +110,12 @@ eureka:
   instance:
     prefer-ip-address: true
 
+
 application:
   security:
     jwt:
       secret-key: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+
 
 logging:
   level:
@@ -91,4 +126,3 @@ logging:
     org.springframework.web.server.adapter.HttpWebHandlerAdapter: TRACE
     reactor.netty.http.server: DEBUG
     reactor.netty: DEBUG
-

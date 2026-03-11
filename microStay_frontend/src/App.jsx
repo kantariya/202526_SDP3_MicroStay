@@ -9,7 +9,7 @@ import DashBoard from './user/pages/DashBoard';
 import HotelDetails from './user/pages/HotelDetails';
 import OAuthSuccess from './user/pages/oauthSuccess'
 import './index.css'
-import { ProtectedRoute, PublicRoute } from './user/layout/ProtectedRoute'
+import { ProtectedRoute, PublicRoute, ProtectedAdminRoute } from './user/layout/ProtectedRoute'
 import MyBookingsTab from './user/pages/MyBookingsTab';
 import FavoritesPage from './user/pages/FavoritesPage';
 import SearchPage from './user/pages/SearchPage';
@@ -18,6 +18,7 @@ import PaymentPage from './user/pages/PaymentPage';
 import BookingSuccess from './user/pages/BookingSuccess';
 import BookingDetail from './user/pages/BookingDetail';
 import VerifyEmail from './user/pages/VerifyEmail';
+import Unauthorized from './error/pages/Unauthorized';
 
 // Admin Imports
 
@@ -34,16 +35,16 @@ import AdminPayments from './admin/pages/Payments';
 import AdminSettings from './admin/pages/Settings';
 
 // Manager Imports
-// import ManagerLayout from './manager/layout/ManagerLayout';
-// import ManagerRoute from './manager/components/ManagerRoute';
-// import ManagerDashboard from './manager/pages/Dashboard';
-// import MyHotels from './manager/pages/MyHotels';
-// import EditHotel from './manager/pages/EditHotel';
-// import ManagerRooms from './manager/pages/Rooms';
-// import ManagerBookings from './manager/pages/Bookings';
-// import ManagerReviews from './manager/pages/Reviews';
-// import ManagerRevenue from './manager/pages/Revenue';
-// import ManagerProfile from './manager/pages/Profile';
+import ManagerLayout from './manager/layout/ManagerLayout';
+import ManagerRoute from './manager/components/ManagerRoute';
+import ManagerDashboard from './manager/pages/Dashboard';
+import MyHotels from './manager/pages/MyHotels';
+import EditHotel from './manager/pages/EditHotel';
+import ManagerRooms from './manager/pages/Rooms';
+import ManagerBookings from './manager/pages/Bookings';
+import ManagerReviews from './manager/pages/Reviews';
+import ManagerRevenue from './manager/pages/Revenue';
+import ManagerProfile from './manager/pages/Profile';
 
 function App() {
   return (
@@ -58,6 +59,7 @@ function App() {
             <Route path="/register" element={<Register />} />
             <Route path="/oauth-success" element={<OAuthSuccess />} />
             <Route path="/verify-email" element={<VerifyEmail />} />
+            <Route path="/unauthorized" element={<Unauthorized />} />
           </Route>
 
           <Route element={<ProtectedRoute />}>
@@ -78,7 +80,7 @@ function App() {
 
 
 
-          <Route element={<ProtectedRoute />}>
+          <Route element={<ProtectedAdminRoute />}>
             <Route path="/admin" element={<AdminLayout />}>
               <Route path="dashboard" element={<AdminDashboard />} />
               <Route path="hotels" element={<AdminHotels />} />
@@ -94,7 +96,7 @@ function App() {
           </Route>
 
           {/* Manager Routes */}
-          {/* <Route path="/manager" element={<ManagerRoute />}>
+          <Route path="/manager" element={<ManagerRoute />}>
             <Route element={<ManagerLayout />}>
               <Route path="dashboard" element={<ManagerDashboard />} />
               <Route path="hotels" element={<MyHotels />} />
@@ -104,11 +106,10 @@ function App() {
               <Route path="reviews" element={<ManagerReviews />} />
               <Route path="revenue" element={<ManagerRevenue />} />
               <Route path="profile" element={<ManagerProfile />} />
-
-              <Route index element={<Navigate to="/manager/dashboard" replace />} /> */}
-          {/* Add other manager routes here later */}
-          {/* </Route>
-          </Route> */}
+              <Route index element={<Navigate to="/manager/dashboard" replace />} />
+              {/* Add other manager routes here later */}
+            </Route>
+          </Route>
 
           {/* Redirect unknown routes */}
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -28,7 +28,9 @@ const HotelDetails = () => {
   // Booking State
   const [checkIn, setCheckIn] = useState('');
   const [checkOut, setCheckOut] = useState('');
-  const [guests, setGuests] = useState(2);
+  const [adults, setAdults] = useState(2);
+  const [children, setChildren] = useState(0);
+  const [numberOfRooms, setNumberOfRooms] = useState(1);
 
   // Set default dates (today + tomorrow)
   useEffect(() => {
@@ -46,8 +48,8 @@ const HotelDetails = () => {
   const fetchData = async () => {
     try {
       const [hotelRes, reviewRes] = await Promise.all([
-        api.get(`/hotels/\${hotelId}`),
-        api.get(`/hotels/\${hotelId}/reviews`)
+        api.get(`/hotels/${hotelId}`),
+        api.get(`/hotels/${hotelId}/reviews`)
       ]);
       setHotel(hotelRes.data);
       setReviews(reviewRes.data);
@@ -64,6 +66,12 @@ const HotelDetails = () => {
       return;
     }
 
+    // Validate capacity
+    if (adults > room.maxAdults || children > room.maxChildren) {
+      alert(`This room can accommodate max ${room.maxAdults} adults and ${room.maxChildren} children`);
+      return;
+    }
+
     // Calculate days
     const start = new Date(checkIn);
     const end = new Date(checkOut);
@@ -77,7 +85,7 @@ const HotelDetails = () => {
       roomId: room.roomId,
       checkInDate: checkIn,
       checkOutDate: checkOut,
-      guests
+      roomsRequired: numberOfRooms
     })
       .then(() => {
         navigate('/booking/checkout', {
@@ -86,7 +94,9 @@ const HotelDetails = () => {
             room,
             checkIn,
             checkOut,
-            guests,
+            adults,
+            children,
+            numberOfRooms,
             days: diffDays
           }
         });
@@ -247,18 +257,49 @@ const HotelDetails = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Guests</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Adults</label>
                   <div className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-3 flex items-center gap-3">
                     <Users size={16} className="text-slate-400" />
                     <select
-                      value={guests}
-                      onChange={e => setGuests(e.target.value)}
+                      value={adults}
+                      onChange={e => setAdults(Number(e.target.value))}
                       className="bg-transparent w-full text-sm font-bold text-slate-900 outline-none"
                     >
-                      <option value="1">1 Guest</option>
-                      <option value="2">2 Guests</option>
-                      <option value="3">3 Guests</option>
-                      <option value="4+">4+ Guests</option>
+                      {[1, 2, 3, 4, 5, 6].map(num => (
+                        <option key={num} value={num}>{num} Adult{num > 1 ? 's' : ''}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Children</label>
+                  <div className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-3 flex items-center gap-3">
+                    <Baby size={16} className="text-slate-400" />
+                    <select
+                      value={children}
+                      onChange={e => setChildren(Number(e.target.value))}
+                      className="bg-transparent w-full text-sm font-bold text-slate-900 outline-none"
+                    >
+                      {[0, 1, 2, 3, 4].map(num => (
+                        <option key={num} value={num}>{num} {num === 1 ? 'Child' : 'Children'}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Number of Rooms</label>
+                  <div className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-3 flex items-center gap-3">
+                    <Bed size={16} className="text-slate-400" />
+                    <select
+                      value={numberOfRooms}
+                      onChange={e => setNumberOfRooms(Number(e.target.value))}
+                      className="bg-transparent w-full text-sm font-bold text-slate-900 outline-none"
+                    >
+                      {[1, 2, 3, 4, 5].map(num => (
+                        <option key={num} value={num}>{num} Room{num > 1 ? 's' : ''}</option>
+                      ))}
                     </select>
                   </div>
                 </div>

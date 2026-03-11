@@ -41,10 +41,7 @@ const Navbar = () => {
           </div>
           <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
             <Users size={16} className="text-blue-600" />
-            <span>Add Guests</span>
-          </div>
-          <div className="bg-blue-600 p-2 rounded-full text-white group-hover:scale-105 transition">
-            <Search size={14} />
+            <span>With Your Guests</span>
           </div>
         </div>
 

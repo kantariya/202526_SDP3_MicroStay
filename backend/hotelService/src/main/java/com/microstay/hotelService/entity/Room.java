@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 public class Room {
 
     private String roomId;
-    private String roomType; // STANDARD, DELUXE, SUITE
+    private RoomType roomType;
 
     private String description;
 

@@ -4,13 +4,14 @@ import com.microstay.contract.hotelContract.dto.AvailabilityRequest;
 import com.microstay.contract.hotelContract.dto.AvailabilityResponse;
 import com.microstay.contract.hotelContract.dto.ConfirmBookingRequest;
 import com.microstay.hotelService.dto.HotelCardResponse;
-import com.microstay.hotelService.entity.Availability;
-import com.microstay.hotelService.entity.Hotel;
-import com.microstay.hotelService.entity.Room;
+import com.microstay.hotelService.entity.*;
 import com.microstay.hotelService.repository.HotelRepository;
 import com.microstay.hotelService.service.HotelService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,20 +30,71 @@ public class HotelServiceImpl implements HotelService {
     private final HotelRepository hotelRepository;
 
     @Override
+    public Page<Hotel> searchHotels(
+            String city,
+            LocalDate checkIn,
+            LocalDate checkOut,
+            Double minPrice,
+            Double maxPrice,
+            Integer starRating,
+            RoomType roomType,
+            List<String> facilities,
+            int page,
+            int size,
+            String sortDirection
+    ) {
+
+        if (checkIn == null) {
+            checkIn = LocalDate.now();
+        }
+
+        if (checkOut == null) {
+            checkOut = checkIn.plusDays(1);
+        }
+
+        if (city == null) {
+            city = "Delhi";
+        }
+
+        Pageable pageable = PageRequest.of(page, size);
+
+        System.out.println("Search params - city: " + city + ", checkIn: " + checkIn + ", checkOut: " + checkOut +
+                ", minPrice: " + minPrice + ", maxPrice: " + maxPrice +
+                ", starRating: " + starRating + ", roomType: " + roomType +
+                ", facilities: " + facilities +
+                ", page: " + page + ", size: " + size +
+                ", sortDirection: " + sortDirection);
+
+        return hotelRepository.searchHotels(
+                city,
+                checkIn,
+                checkOut,
+                minPrice,
+                maxPrice,
+                starRating,
+                roomType,
+                facilities,
+                pageable,
+                sortDirection
+        );
+    }
+
+    @Override
     public List<HotelCardResponse> getHotelCards(String city) {
         // Public search: Filter by ACTIVE only
         // Strictly enforce status = ACTIVE
         List<Hotel> hotels;
         if (city != null && !city.isBlank()) {
-            hotels = hotelRepository.findByLocationCityContainingIgnoreCaseAndStatus(city, "ACTIVE");
+            hotels = hotelRepository.findByLocationCityContainingIgnoreCaseAndStatus(city, HotelStatus.ACTIVE);
         } else {
-            hotels = hotelRepository.findByStatus("ACTIVE");
+            hotels = hotelRepository.findByStatus(HotelStatus.ACTIVE);
         }
 
         return hotels.stream()
                 .map(h -> new HotelCardResponse(
                         h.getId(),
                         h.getName(),
+                        h.getLocation().getCity(),
                         h.getLocation().getCity(),
                         h.getStarRating(),
                         h.getRatingSummary() != null ? h.getRatingSummary().getAverage() : 0.0,
@@ -55,12 +107,12 @@ public class HotelServiceImpl implements HotelService {
     }
 
     @Override
-    public List<Hotel> getAllHotels(String city, String status, String managerId) {
+    public List<Hotel> getAllHotels(String city, HotelStatus status, String managerId) {
         // Dynamic admin filter using ExampleMatcher
         Hotel probe = new Hotel();
-        if (status != null && !status.isBlank())
+        if (status != null)
             probe.setStatus(status);
-        if (managerId != null && !managerId.isBlank())
+        if (managerId != null)
             probe.setManagerId(managerId);
 
         if (city != null && !city.isBlank()) {
@@ -80,17 +132,36 @@ public class HotelServiceImpl implements HotelService {
     }
 
     @Override
+    public HotelCardResponse getHotelCardById(String hotelId) {
+        Hotel hotel = hotelRepository.findById(hotelId)
+                .orElseThrow(() -> new RuntimeException("Hotel not found"));
+
+        return new HotelCardResponse(
+                hotel.getId(),
+                hotel.getName(),
+                hotel.getLocation().getCity(),
+                hotel.getLocation().getCountry(),
+                hotel.getStarRating(),
+                hotel.getRatingSummary() != null ? hotel.getRatingSummary().getAverage() : 0.0,
+                hotel.getRooms().stream()
+                        .map(r -> r.getPricing().getBasePrice())
+                        .min(Double::compareTo)
+                        .orElse(0.0),
+                hotel.getImages().isEmpty() ? null : hotel.getImages().get(0));
+    }
+
+    @Override
     public List<Hotel> getHotelsByManagerId(String managerId) {
         return hotelRepository.findByManagerId(managerId);
     }
 
     @Override
-    public List<Hotel> getHotelsByStatus(String status) {
+    public List<Hotel> getHotelsByStatus(HotelStatus status) {
         return hotelRepository.findByStatus(status);
     }
 
     @Override
-    public Hotel updateHotelStatus(String hotelId, String status) {
+    public Hotel updateHotelStatus(String hotelId, HotelStatus status) {
         Hotel hotel = getHotelDetails(hotelId, true);
         hotel.setStatus(status);
         hotel.setUpdatedAt(Instant.now());
@@ -121,9 +192,9 @@ public class HotelServiceImpl implements HotelService {
         hotel.setManagerId(userId);
 
         if ("ADMIN".equals(role)) {
-            hotel.setStatus("ACTIVE");
+            hotel.setStatus(HotelStatus.ACTIVE);
         } else {
-            hotel.setStatus("PENDING");
+            hotel.setStatus(HotelStatus.PENDING);
         }
 
         return hotelRepository.save(hotel);
@@ -189,6 +260,8 @@ public class HotelServiceImpl implements HotelService {
             }
 
             if (availability.getAvailableRooms() < request.getRoomsRequired()) {
+                System.out.println("Not enough rooms for date " + date + ": required " + request.getRoomsRequired() +
+                        ", available " + availability.getAvailableRooms());
                 return new AvailabilityResponse(
                         false,
                         "Rooms not available on " + date,

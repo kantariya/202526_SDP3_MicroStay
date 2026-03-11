@@ -9,7 +9,7 @@ const ConfirmDialog = ({ isOpen, onClose, onConfirm, title, message, variant = '
             <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full overflow-hidden animate-in zoom-in-95 duration-200">
 
                 <div className="p-6 text-center">
-                    <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4 \${variant === 'danger' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
+                    <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4 ${variant === 'danger' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
                         <AlertTriangle size={32} />
                     </div>
 
@@ -27,7 +27,7 @@ const ConfirmDialog = ({ isOpen, onClose, onConfirm, title, message, variant = '
                         </button>
                         <button
                             onClick={() => { onConfirm(); onClose(); }}
-                            className={`py-3 px-4 rounded-xl font-bold text-white shadow-lg transition \${variant === 'danger' ? 'bg-red-600 hover:bg-red-700 shadow-red-200' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-200'}`}
+                            className={`py-3 px-4 rounded-xl font-bold text-white shadow-lg transition ${variant === 'danger' ? 'bg-red-600 hover:bg-red-700 shadow-red-200' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-200'}`}
                         >
                             Confirm
                         </button>

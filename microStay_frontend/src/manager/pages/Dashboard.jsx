@@ -15,24 +15,49 @@ const ManagerDashboard = () => {
     useEffect(() => {
         const fetchStats = async () => {
             try {
-                // Execute parallel fetches for strict API adherence
-                const [hotelsRes, todayRes, bookingsRes, revenueRes] = await Promise.all([
-                    api.get('/manager/hotels'),
-                    api.get('/manager/bookings/today-count'),
-                    api.get('/manager/bookings'), // To get total count
-                    api.get('/manager/revenue')
+                // STEP 1: Fetch manager hotels first
+                const hotelsRes = await api.get('/manager/hotels');
+
+                const hotels = hotelsRes.data || [];
+                const hotelIds = hotels.map(h => h.id);
+
+                // If no hotels, avoid unnecessary calls
+                if (hotelIds.length === 0) {
+                    setStats({
+                        myHotels: 0,
+                        todayCheckins: 0,
+                        totalBookings: 0,
+                        revenue: 0
+                    });
+                    return;
+                }
+
+                const params = new URLSearchParams(
+                    hotelIds.map(id => ['hotelIds', id])
+                );
+
+                // STEP 2: Fetch dependent APIs in parallel
+                const [todayRes, bookingsRes, revenueRes] = await Promise.all([
+                    api.get('/manager/bookings/today-count', {
+                        params
+                    }),
+                    api.get('/manager/bookings', {
+                        params
+                    }),
+                    api.get('/manager/revenue', {
+                        params
+                    })
                 ]);
 
                 setStats({
-                    myHotels: hotelsRes.data.length || 0,
-                    todayCheckins: todayRes.data?.count || 0, // Assuming count object
-                    totalBookings: bookingsRes.data.length || 0,
-                    revenue: revenueRes.data?.totalRevenue || 0
+                    myHotels: hotels.length,
+                    todayCheckins: todayRes.data?.count || 0,
+                    totalBookings: bookingsRes.data?.length || 0,
+                    revenue: revenueRes.data?.revenue || 0
                 });
 
             } catch (error) {
                 console.error("Error fetching stats:", error);
-                // Fallback / gracefully handle error
             } finally {
                 setLoading(false);
             }
@@ -44,7 +69,7 @@ const ManagerDashboard = () => {
         { title: 'My Hotels', value: stats.myHotels, icon: <Building2 size={24} />, color: 'bg-blue-600', textColor: 'text-blue-400' },
         { title: 'Today Check-ins', value: stats.todayCheckins, icon: <Users size={24} />, color: 'bg-emerald-600', textColor: 'text-emerald-400' },
         { title: 'Total Bookings', value: stats.totalBookings, icon: <CalendarCheck size={24} />, color: 'bg-purple-600', textColor: 'text-purple-400' },
-        { title: 'Revenue', value: `\${stats.revenue.toLocaleString()}`, icon: <TrendingUp size={24} />, color: 'bg-orange-600', textColor: 'text-orange-400' },
+        { title: 'Revenue', value: stats.revenue, icon: <TrendingUp size={24} />, color: 'bg-orange-600', textColor: 'text-orange-400' },
     ];
 
     return (
@@ -55,13 +80,13 @@ const ManagerDashboard = () => {
                 {cards.map((card, index) => (
                     <div key={index} className="bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-lg transform transition-all hover:scale-105">
                         <div className="flex items-center justify-between mb-4">
-                            <div className={`p-3 rounded-lg bg-opacity-20 \${card.textColor} bg-current`}>
+                            <div className={`p-3 rounded-lg bg-opacity-20 ${card.textColor} bg-current`}>
                                 {card.icon}
                             </div>
                             {loading ? (
                                 <div className="h-4 w-16 bg-slate-700 rounded animate-pulse"></div>
                             ) : (
-                                <span className={`text-sm font-bold \${card.textColor} px-2 py-1 rounded bg-opacity-10 bg-current`}>
+                                <span className={`text-sm font-bold ${card.textColor} px-2 py-1 rounded bg-opacity-10 bg-current`}>
                                     +0%
                                 </span>
                             )}

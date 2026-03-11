@@ -1,5 +1,6 @@
 package com.microstay.bookingService.dto;
 
+import com.microstay.contract.hotelContract.dto.RoomType;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
@@ -11,7 +12,7 @@ public class BookedRoomRequest {
     private String roomId;
 
     // Optional: frontend can send; otherwise defaults used
-    private String roomType;
+    private RoomType roomType;
 
     // Optional: frontend can send; otherwise defaults used
     @Min(0)

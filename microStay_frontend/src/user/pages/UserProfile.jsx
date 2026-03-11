@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import api from "../../utils/api";
 import BookingCard from '../components/BookingCard';
+import ConfirmDialog from '../components/ConfirmDialog';
 import { useNavigate } from 'react-router-dom';
 
 const UserProfile = () => {
@@ -15,6 +16,10 @@ const UserProfile = () => {
   const [activeTab, setActiveTab] = useState('profile');
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({});
+  
+  // Confirm Dialog State for Cancel Booking
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [bookingToCancel, setBookingToCancel] = useState(null);
 
   useEffect(() => {
     fetchProfileData();
@@ -33,7 +38,30 @@ const UserProfile = () => {
 
       // 2. Get Bookings
       const bookRes = await api.get('/bookings/my');
-      setBookings(bookRes.data.bookings || []);
+      const bookingsData = bookRes.data.bookings || [];
+
+      // 3. Enrich each booking with hotel details (city, country, image)
+      const enrichedBookings = await Promise.all(
+        bookingsData.map(async (booking) => {
+          try {
+            const hotelRes = await api.get(`/hotels/${booking.hotelId}/card`);
+            const hotel = hotelRes.data;
+            
+            return {
+              ...booking,
+              city: hotel?.city || '',
+              country: hotel?.country || '',
+              image: hotel.images?.[0] || hotel.image || ''
+            };
+          } catch (error) {
+            console.error(`Failed to fetch hotel ${booking.hotelId}:`, error);
+            // Return booking without enrichment if hotel fetch fails
+            return booking;
+          }
+        })
+      );
+
+      setBookings(enrichedBookings);
 
     } catch (err) {
       console.error("Failed to load profile", err);
@@ -49,12 +77,44 @@ const UserProfile = () => {
 
   const handleSaveProfile = async () => {
     try {
-      // Strict API Enforcement: PUT /users/profile is not in the allowed list for User Frontend.
-      // Editing is disabled for now.
-      alert("Profile editing is currently disabled.");
+      // PATCH /users/profile with UserUpdateRequest
+      const updateRequest = {
+        firstName: editForm.firstName,
+        lastName: editForm.lastName,
+        phone: editForm.phone,
+        address: editForm.address,
+        city: editForm.city,
+        country: editForm.country
+      };
+
+      const response = await api.patch('/users/profile', updateRequest);
+      setUser(response.data);
+      setEditForm(response.data);
       setIsEditing(false);
+      alert("Profile updated successfully!");
     } catch (err) {
-      console.error("Profile update disabled");
+      console.error("Profile update failed", err);
+      alert(err.response?.data?.message || "Failed to update profile");
+    }
+  };
+
+  const initiateCancel = (bookingReference) => {
+    setBookingToCancel(bookingReference);
+    setIsConfirmOpen(true);
+  };
+
+  const handleConfirmCancel = async () => {
+    if (!bookingToCancel) return;
+    try {
+      await api.post(`/bookings/${bookingToCancel}/cancel`);
+      alert("Booking cancelled successfully.");
+      // Refresh bookings
+      fetchProfileData();
+    } catch (err) {
+      alert(err.response?.data?.message || "Cancellation failed.");
+    } finally {
+      setIsConfirmOpen(false);
+      setBookingToCancel(null);
     }
   };
 
@@ -64,7 +124,7 @@ const UserProfile = () => {
   const NavButton = ({ tab, icon: Icon, label, count }) => (
     <button
       onClick={() => setActiveTab(tab)}
-      className={`flex items-center w-full p-3 rounded-xl transition-all \${
+      className={`flex items-center w-full p-3 rounded-xl transition-all ${
         activeTab === tab ? 'bg-blue-50 text-blue-700 font-bold' : 'text-slate-600 hover:bg-gray-50 font-medium'
       }`}
     >
@@ -101,7 +161,7 @@ const UserProfile = () => {
                     {user.profileImage ? (
                       <img src={user.profileImage} alt="Profile" className="w-full h-full object-cover" />
                     ) : (
-                      <span className="text-4xl font-bold text-slate-400">{user.name?.[0]}</span>
+                      <span className="text-4xl font-bold text-slate-400">{user.firstName?.[0]}</span>
                     )}
                   </div>
                   <span className="absolute bottom-0 right-0 bg-amber-400 text-white text-xs font-bold px-3 py-1 rounded-full border-2 border-white shadow-sm">
@@ -109,7 +169,7 @@ const UserProfile = () => {
                   </span>
                 </div>
 
-                <h2 className="text-2xl font-black text-slate-900">{user.name}</h2>
+                <h2 className="text-2xl font-black text-slate-900">{user.firstName} {user.lastName}</h2>
                 <p className="text-slate-500 font-medium mb-6">{user.email}</p>
 
                 <div className="grid grid-cols-2 gap-4 w-full mb-6">
@@ -170,29 +230,44 @@ const UserProfile = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-slate-400 uppercase">Full Name</label>
+                    <label className="text-xs font-bold text-slate-400 uppercase">First Name</label>
                     <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-200">
                       <UserCircle size={20} className="text-slate-400" />
                       <input
                         disabled={!isEditing}
-                        value={editForm.name || ''}
-                        onChange={e => setEditForm({ ...editForm, name: e.target.value })}
+                        value={editForm.firstName || ''}
+                        onChange={e => setEditForm({ ...editForm, firstName: e.target.value })}
                         className="bg-transparent w-full font-bold text-slate-700 outline-none disabled:text-slate-500"
+                        placeholder="Enter first name"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-400 uppercase">Last Name</label>
+                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-200">
+                      <UserCircle size={20} className="text-slate-400" />
+                      <input
+                        disabled={!isEditing}
+                        value={editForm.lastName || ''}
+                        onChange={e => setEditForm({ ...editForm, lastName: e.target.value })}
+                        className="bg-transparent w-full font-bold text-slate-700 outline-none disabled:text-slate-500"
+                        placeholder="Enter last name"
                       />
                     </div>
                   </div>
 
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-slate-400 uppercase">Email</label>
-                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-200">
+                    <div className="flex items-center gap-3 p-3 bg-gray-100 rounded-xl border border-gray-300">
                       <Mail size={20} className="text-slate-400" />
                       <input
-                        disabled={!isEditing}
+                        disabled
                         value={editForm.email || ''}
-                        onChange={e => setEditForm({ ...editForm, email: e.target.value })}
-                        className="bg-transparent w-full font-bold text-slate-700 outline-none disabled:text-slate-500"
+                        className="bg-transparent w-full font-bold text-slate-400 outline-none cursor-not-allowed"
                       />
                     </div>
+                    <p className="text-xs text-slate-400 italic">Email cannot be changed</p>
                   </div>
 
                   <div className="space-y-2">
@@ -222,6 +297,59 @@ const UserProfile = () => {
                       />
                     </div>
                   </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-400 uppercase">City</label>
+                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-200">
+                      <MapPin size={20} className="text-slate-400" />
+                      <input
+                        disabled={!isEditing}
+                        value={editForm.city || ''}
+                        onChange={e => setEditForm({ ...editForm, city: e.target.value })}
+                        className="bg-transparent w-full font-bold text-slate-700 outline-none disabled:text-slate-500"
+                        placeholder="Add city"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-400 uppercase">Country</label>
+                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-200">
+                      <MapPin size={20} className="text-slate-400" />
+                      <input
+                        disabled={!isEditing}
+                        value={editForm.country || ''}
+                        onChange={e => setEditForm({ ...editForm, country: e.target.value })}
+                        className="bg-transparent w-full font-bold text-slate-700 outline-none disabled:text-slate-500"
+                        placeholder="Add country"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-400 uppercase">Role</label>
+                    <div className="flex items-center gap-3 p-3 bg-gray-100 rounded-xl border border-gray-300">
+                      <Shield size={20} className="text-slate-400" />
+                      <input
+                        disabled
+                        value={editForm.role || ''}
+                        className="bg-transparent w-full font-bold text-slate-400 outline-none cursor-not-allowed"
+                      />
+                    </div>
+                    <p className="text-xs text-slate-400 italic">Role is system-managed</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-400 uppercase">Member Since</label>
+                    <div className="flex items-center gap-3 p-3 bg-gray-100 rounded-xl border border-gray-300">
+                      <Calendar size={20} className="text-slate-400" />
+                      <input
+                        disabled
+                        value={editForm.createdAt ? new Date(editForm.createdAt).toLocaleDateString() : ''}
+                        className="bg-transparent w-full font-bold text-slate-400 outline-none cursor-not-allowed"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
@@ -231,7 +359,12 @@ const UserProfile = () => {
               <div className="space-y-6">
                 {bookings.length > 0 ? (
                   bookings.map(booking => (
-                    <BookingCard key={booking.id} booking={booking} hotel={{ name: booking.hotelName, location: { city: 'Unknown' } }} />
+                    <BookingCard 
+                      key={booking.bookingId} 
+                      booking={booking} 
+                      hotel={{ name: booking.hotelName, location: { city: booking.city || booking.location?.city } }} 
+                      onCancel={() => initiateCancel(booking.bookingReference)}
+                    />
                   ))
                 ) : (
                   <div className="bg-white rounded-3xl p-10 text-center border border-gray-100">
@@ -254,6 +387,14 @@ const UserProfile = () => {
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        isOpen={isConfirmOpen}
+        onClose={() => setIsConfirmOpen(false)}
+        onConfirm={handleConfirmCancel}
+        title="Cancel Booking"
+        message="Are you sure you want to cancel this booking? This action cannot be undone."
+      />
     </div>
   );
 };

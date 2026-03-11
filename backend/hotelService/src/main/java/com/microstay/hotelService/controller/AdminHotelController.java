@@ -1,11 +1,13 @@
 package com.microstay.hotelService.controller;
 
 import com.microstay.hotelService.entity.Hotel;
+import com.microstay.hotelService.entity.HotelStatus;
 import com.microstay.hotelService.service.AdminHotelService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
+
 
 @RestController
 @RequestMapping("/api/admin/hotels")
@@ -22,19 +24,35 @@ public class AdminHotelController {
 
     // List hotels
     @GetMapping
-    public List<Hotel> listAllHotels(
-            @RequestParam(required = false) String status,
-            @RequestParam(required = false) String city,
-            @RequestParam(required = false) String managerId) {
+    public Page<Hotel> listAllHotels(
 
-        return adminHotelService.listAllHotels(status, city, managerId);
+            @RequestParam(required = false) HotelStatus status,
+            @RequestParam(required = false) String managerId,
+            @RequestParam(required = false) String nameSearch,
+
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+
+            @RequestParam(defaultValue = "name") String sortBy,
+            @RequestParam(defaultValue = "asc") String direction
+    ) {
+
+        return adminHotelService.listHotels(
+                status,
+                managerId,
+                nameSearch,
+                page,
+                size,
+                sortBy,
+                direction
+        );
     }
 
     // Change status
     @PutMapping("/{hotelId}/status")
     public Hotel changeStatus(
             @PathVariable String hotelId,
-            @RequestParam String status) {
+            @RequestParam HotelStatus status) {
 
         return adminHotelService.changeStatus(hotelId, status);
     }

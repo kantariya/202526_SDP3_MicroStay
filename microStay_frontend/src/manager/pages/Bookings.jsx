@@ -26,29 +26,29 @@ const ManagerBookings = () => {
     };
 
     const handleAction = async (id, action) => {
-        if (!window.confirm(`Are you sure you want to \${action} this booking?`)) return;
+        if (!window.confirm(`Are you sure you want to ${action} this booking?`)) return;
 
         try {
             if (action === 'confirm') {
-                await api.post(`/bookings/\${id}/confirm`);
+                await api.post(`/bookings/${id}/confirm`);
             } else if (action === 'cancel') {
-                await api.post(`/bookings/\${id}/cancel`);
+                await api.post(`/bookings/${id}/cancel`);
             } else if (action === 'checkin') {
                 // Assuming backend supports this, or we update status manually via PUT
-                // await api.put(`/bookings/\${id}/status`, { status: 'CHECKED_IN' });
+                // await api.put(`/bookings/${id}/status`, { status: 'CHECKED_IN' });
                 alert("Check-in feature not yet connected to backend.");
                 return;
             } else if (action === 'checkout') {
-                // await api.put(`/bookings/\${id}/status`, { status: 'COMPLETED' });
+                // await api.put(`/bookings/${id}/status`, { status: 'COMPLETED' });
                 alert("Check-out feature not yet connected to backend.");
                 return;
             }
 
-            alert(`Booking \${action}ed successfully.`);
+            alert(`Booking ${action}ed successfully.`);
             fetchBookings(); // Refresh list
         } catch (error) {
-            console.error(`Error \${action}ing booking:`, error);
-            alert(`Failed to \${action} booking.`);
+            console.error(`Error ${action}ing booking:`, error);
+            alert(`Failed to ${action} booking.`);
         }
     };
 
@@ -90,7 +90,7 @@ const ManagerBookings = () => {
                                             </div>
                                         </td>
                                         <td className="p-4">
-                                            <span className={`px-2 py-1 rounded text-xs font-bold \${
+                                            <span className={`px-2 py-1 rounded text-xs font-bold ${
                                                 booking.status === 'CONFIRMED' ? 'bg-blue-500/20 text-blue-400' :
                                                 booking.status === 'CHECKED_IN' ? 'bg-purple-500/20 text-purple-400' :
                                                 booking.status === 'CANCELLED' ? 'bg-red-500/20 text-red-400' :

@@ -12,6 +12,8 @@ public class BookingStatsService {
 
     // Total booking count
     public Long countBookings() {
-        return bookingRepository.count();
+        Long ans = bookingRepository.count();
+        System.out.println("Total bookings: " + ans);
+        return ans;
     }
 }

@@ -41,7 +41,24 @@ const Dashboard = () => {
     if (dates.checkOut) params.append('checkOut', dates.checkOut);
     params.append('guests', guests);
 
-    navigate(`/search?\${params.toString()}`);
+    navigate(`/search?${params.toString()}`);
+  };
+
+  const handleCityClick = (selectedCity) => {
+    const params = new URLSearchParams();
+    params.append('city', selectedCity);
+    
+    // Set check-in as today and checkout as tomorrow
+    const today = new Date().toISOString().split('T')[0];
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowDate = tomorrow.toISOString().split('T')[0];
+    
+    params.append('checkIn', today);
+    params.append('checkOut', tomorrowDate);
+    params.append('guests', 2);
+
+    navigate(`/search?${params.toString()}`);
   };
 
   const featuredHotels = hotels.slice(0, 4); // Just taking first 4 for demo
@@ -68,21 +85,21 @@ const Dashboard = () => {
 
         <div className="relative max-w-4xl mx-auto text-center space-y-6">
           <h1 className="text-4xl lg:text-6xl font-black text-white leading-tight">
-            Find your perfect <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">MicroStay</span>
+            Find your perfect <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">Stay</span>
           </h1>
           <p className="text-lg text-slate-300 max-w-2xl mx-auto">
             Experience premium hotels with flexible check-ins, hourly bookings, and instant confirmation.
           </p>
 
           {/* SEARCH WIDGET */}
-          <div className="mt-10 bg-white p-4 rounded-3xl shadow-2xl shadow-blue-900/20 max-w-5xl mx-auto">
-            <form onSubmit={handleSearch} className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="mt-10 bg-white p-4 sm:p-6 rounded-3xl shadow-2xl shadow-blue-900/20 max-w-6xl mx-auto">
+            <form onSubmit={handleSearch} className="flex flex-col md:flex-row gap-3 items-end">
 
               {/* CITY */}
-              <div className="bg-gray-50 px-4 py-3 rounded-2xl border border-gray-100 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 transition">
+              <div className="flex-1 w-full bg-gray-50 px-4 py-3 rounded-2xl border border-gray-100 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 transition">
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Where?</label>
                 <div className="flex items-center gap-2">
-                  <MapPin size={18} className="text-blue-600" />
+                  <MapPin size={18} className="text-blue-600 flex-shrink-0" />
                   <input
                     type="text"
                     placeholder="City or Hotel..."
@@ -94,7 +111,7 @@ const Dashboard = () => {
               </div>
 
               {/* DATES */}
-              <div className="col-span-1 border-gray-100">
+              <div className="flex-1 w-full">
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 ml-1">When?</label>
                 <DateRangePicker
                   checkIn={dates.checkIn}
@@ -105,10 +122,10 @@ const Dashboard = () => {
               </div>
 
               {/* GUESTS */}
-              <div className="bg-gray-50 px-4 py-3 rounded-2xl border border-gray-100 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 transition">
+              <div className="flex-1 w-full bg-gray-50 px-4 py-3 rounded-2xl border border-gray-100 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 transition">
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Who?</label>
                 <div className="flex items-center gap-2">
-                  <Users size={18} className="text-blue-600" />
+                  <Users size={18} className="text-blue-600 flex-shrink-0" />
                   <select
                     className="bg-transparent w-full text-slate-900 font-bold text-sm outline-none"
                     value={guests}
@@ -123,7 +140,7 @@ const Dashboard = () => {
               </div>
 
               {/* SEARCH BUTTON */}
-              <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold flex items-center justify-center gap-2 transition shadow-lg shadow-blue-500/30">
+              <button type="submit" className="w-full md:w-auto px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold flex items-center justify-center gap-2 transition shadow-lg shadow-blue-500/30">
                 <Search size={20} />
                 Search
               </button>
@@ -136,24 +153,31 @@ const Dashboard = () => {
       <section className="max-w-7xl mx-auto px-6 py-16">
         <div className="flex items-center justify-between mb-8">
           <h2 className="text-2xl font-bold text-slate-900">Popular Destinations</h2>
-          <button className="text-blue-600 font-semibold text-sm flex items-center gap-1 hover:gap-2 transition-all">
-            View all <ArrowRight size={16} />
-          </button>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {['Mumbai', 'Delhi', 'Bangalore', 'Goa'].map((city) => (
-            <div key={city} onClick={() => { setCity(city); }} className="relative group cursor-pointer overflow-hidden rounded-2xl aspect-[4/3] bg-gray-200">
-              <img src={`https://source.unsplash.com/800x600/?\${city}`} alt={city} className="w-full h-full object-cover group-hover:scale-110 transition duration-500" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-end p-4">
-                <span className="text-white font-bold text-lg">{city}</span>
+          {['Mumbai', 'Delhi', 'Bangalore', 'Goa'].map((cityName) => (
+            <div 
+              key={cityName} 
+              onClick={() => handleCityClick(cityName)} 
+              className="relative group cursor-pointer overflow-hidden rounded-2xl aspect-[4/3] bg-gray-200 shadow-lg hover:shadow-xl transition-shadow duration-300"
+            >
+              <img 
+                src={`/${cityName.toLowerCase()}_p1.jpg`} 
+                alt={cityName} 
+                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent flex items-end p-4">
+                <span className="text-white font-bold text-lg drop-shadow-lg">{cityName}</span>
               </div>
+              {/* Hover overlay */}
+              <div className="absolute inset-0 bg-blue-600/0 group-hover:bg-blue-600/10 transition-colors duration-300"></div>
             </div>
           ))}
         </div>
       </section>
 
       {/* DEALS BANNER */}
-      <section className="max-w-7xl mx-auto px-6 mb-16">
+      {/* <section className="max-w-7xl mx-auto px-6 mb-16">
         <div className="bg-gradient-to-r from-purple-600 to-blue-600 rounded-3xl p-8 md:p-12 text-white relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-8">
           <div className="relative z-10 max-w-lg">
             <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur px-3 py-1 rounded-full text-xs font-bold mb-4 border border-white/30">
@@ -164,34 +188,43 @@ const Dashboard = () => {
             <button onClick={() => navigate('/search')} className="bg-white text-blue-600 px-8 py-3 rounded-full font-bold hover:bg-blue-50 transition shadow-xl">
               Explore Deals
             </button>
-          </div>
-          {/* Decorative circles */}
-          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl"></div>
+          </div> */}
+      {/* Decorative circles */}
+      {/* <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl"></div>
           <div className="absolute bottom-0 left-0 w-64 h-64 bg-black/10 rounded-full translate-y-1/2 -translate-x-1/2 blur-2xl"></div>
         </div>
-      </section>
+      </section> */}
 
       {/* FEATURED HOTELS */}
       <section className="bg-gray-50 py-16">
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex items-center justify-between mb-8">
-            <h2 className="text-2xl font-bold text-slate-900">Featured Stays</h2>
+            <div>
+              <h2 className="text-2xl md:text-3xl font-bold text-slate-900">Featured Stays</h2>
+              <p className="text-slate-600 text-sm mt-1">Hand-picked hotels for your perfect stay</p>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {featuredHotels.map(hotel => (
-              <HotelCard
-                key={hotel.id}
-                hotel={hotel}
-                favorites={favorites}
-                setFavorites={setFavorites}
-              />
-            ))}
-          </div>
-
-          {featuredHotels.length === 0 && (
-            <div className="text-center py-12 text-slate-500">
-              No hotels found.
+          {loading ? (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <LoadingSkeleton type="card" count={4} />
+            </div>
+          ) : featuredHotels.length > 0 ? (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {featuredHotels.map(hotel => (
+                <HotelCard
+                  key={hotel.id}
+                  hotel={hotel}
+                  favorites={favorites}
+                  setFavorites={setFavorites}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-16 bg-white rounded-2xl border border-gray-200">
+              <div className="text-6xl mb-4">🏨</div>
+              <h3 className="text-xl font-bold text-slate-900 mb-2">No hotels available</h3>
+              <p className="text-slate-500">Check back soon for amazing stays!</p>
             </div>
           )}
         </div>
@@ -201,9 +234,9 @@ const Dashboard = () => {
       <section className="max-w-7xl mx-auto px-6 py-20 text-center">
         <h2 className="text-2xl md:text-3xl font-bold text-slate-900 mb-4">Ready for your next micro-adventure?</h2>
         <p className="text-slate-600 mb-8 max-w-2xl mx-auto">Join thousands of travelers who are discovering a smarter way to stay.</p>
-        <button onClick={() => navigate('/register')} className="bg-slate-900 text-white px-8 py-3 rounded-full font-bold hover:bg-slate-800 transition shadow-lg">
+        {/* <button onClick={() => navigate('/register')} className="bg-slate-900 text-white px-8 py-3 rounded-full font-bold hover:bg-slate-800 transition shadow-lg">
           Create Free Account
-        </button>
+        </button> */}
       </section>
 
     </div>

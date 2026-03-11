@@ -83,4 +83,19 @@ public class AdminService {
 
         return "Manager disabled successfully";
     }
+
+    public String enableManager(String id) {
+
+        User user = userRepository.findById(Long.valueOf(id))
+                .orElseThrow(() -> new RuntimeException("Manager not found"));
+
+        if (user.getRole() != Role.HOTEL_MANAGER) {
+            throw new RuntimeException("Not a manager");
+        }
+
+        user.SetEnabled(true);
+        userRepository.save(user);
+
+        return "Manager enabled successfully";
+    }
 }

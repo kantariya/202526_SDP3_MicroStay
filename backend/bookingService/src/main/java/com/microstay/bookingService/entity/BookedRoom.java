@@ -1,6 +1,7 @@
 package com.microstay.bookingService.entity;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.microstay.contract.hotelContract.dto.RoomType;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -19,7 +20,10 @@ public class BookedRoom {
     private Long id;
 
     private String roomId;
-    private String roomType;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "room_type", nullable = false, columnDefinition = "VARCHAR(50)")
+    private RoomType roomType;
 
     private Integer adults;
     private Integer children;

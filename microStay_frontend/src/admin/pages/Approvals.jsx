@@ -6,22 +6,36 @@ const HotelApprovals = () => {
     const [pendingHotels, setPendingHotels] = useState([]);
     const [loading, setLoading] = useState(true);
 
+    // NEW STATES
+    const [page, setPage] = useState(0);
+    const [size] = useState(10);
+    const [totalPages, setTotalPages] = useState(0);
+
     useEffect(() => {
         fetchPendingHotels();
-    }, []);
+    }, [page]);   // refetch when page changes
 
     const fetchPendingHotels = async () => {
         try {
-            // Correct path — use admin hotels endpoint filtered by PENDING status
-            const response = await api.get('/admin/hotels', { params: { status: 'PENDING' } });
-            setPendingHotels(response.data);
+            setLoading(true);
+
+            const response = await api.get('/admin/hotels', {
+                params: {
+                    status: 'PENDING',
+                    page: page,
+                    size: size,
+                    sortBy: 'createdAt',
+                    direction: 'desc'
+                }
+            });
+
+            console.log("Fetched pending hotels:", response.data);
+
+            setPendingHotels(response.data.content);
+            setTotalPages(response.data.totalPages);
+
         } catch (error) {
             console.error("Error fetching pending hotels:", error);
-            // Mock data for demo
-            setPendingHotels([
-                { id: '101', name: 'Mountain View Inn', city: 'Denver', managerId: 'user_123', createdAt: '2024-03-01T10:00:00Z', status: 'PENDING' },
-                { id: '102', name: 'Lakeside Cabins', city: 'Austin', managerId: 'user_456', createdAt: '2024-03-02T14:30:00Z', status: 'PENDING' }
-            ]);
         } finally {
             setLoading(false);
         }
@@ -29,9 +43,12 @@ const HotelApprovals = () => {
 
     const handleApprove = async (id) => {
         try {
-            // Use admin hotel status endpoint: PUT /admin/hotels/{id}/status?status=ACTIVE
-            await api.put(`/admin/hotels/${id}/status`, null, { params: { status: 'ACTIVE' } });
-            setPendingHotels(prev => prev.filter(h => h.id !== id));
+            await api.put(`/admin/hotels/${id}/status`, null, {
+                params: { status: 'ACTIVE' }
+            });
+
+            fetchPendingHotels(); // reload current page
+
         } catch (error) {
             console.error("Failed to approve:", error);
             alert("Action failed.");
@@ -40,10 +57,14 @@ const HotelApprovals = () => {
 
     const handleReject = async (id) => {
         if (!window.confirm("Are you sure you want to reject this hotel?")) return;
+
         try {
-            // Use admin hotel status endpoint: PUT /admin/hotels/{id}/status?status=REJECTED
-            await api.put(`/admin/hotels/${id}/status`, null, { params: { status: 'REJECTED' } });
-            setPendingHotels(prev => prev.filter(h => h.id !== id));
+            await api.put(`/admin/hotels/${id}/status`, null, {
+                params: { status: 'REJECTED' }
+            });
+
+            fetchPendingHotels(); // reload
+
         } catch (error) {
             console.error("Failed to reject:", error);
             alert("Action failed.");
@@ -69,9 +90,17 @@ const HotelApprovals = () => {
                         </thead>
                         <tbody className="divide-y divide-slate-700">
                             {loading ? (
-                                <tr><td colSpan="4" className="p-8 text-center text-slate-400">Loading pending approvals...</td></tr>
+                                <tr>
+                                    <td colSpan="4" className="p-8 text-center text-slate-400">
+                                        Loading pending approvals...
+                                    </td>
+                                </tr>
                             ) : pendingHotels.length === 0 ? (
-                                <tr><td colSpan="4" className="p-8 text-center text-slate-400">No pending hotels necessary for approval.</td></tr>
+                                <tr>
+                                    <td colSpan="4" className="p-8 text-center text-slate-400">
+                                        No pending hotels necessary for approval.
+                                    </td>
+                                </tr>
                             ) : (
                                 pendingHotels.map(hotel => (
                                     <tr key={hotel.id} className="hover:bg-slate-700/30 transition-colors">
@@ -82,21 +111,27 @@ const HotelApprovals = () => {
                                                 </div>
                                                 <div>
                                                     <p className="font-medium text-slate-200">{hotel.name}</p>
-                                                    <p className="text-xs text-slate-500">Manager: {hotel.managerId}</p>
+                                                    <p className="text-xs text-slate-500">
+                                                        Manager: {hotel.managerId ? hotel.managerId : "N/A"}
+                                                    </p>
                                                 </div>
                                             </div>
                                         </td>
+
                                         <td className="p-4 text-slate-300">
                                             <div className="flex items-center gap-2 text-sm">
-                                                <MapPin size={14} className="text-slate-500" /> {hotel.city}
+                                                <MapPin size={14} className="text-slate-500" />
+                                                {hotel.location.city}
                                             </div>
                                         </td>
+
                                         <td className="p-4 text-slate-300">
                                             <div className="flex items-center gap-2 text-sm">
                                                 <Calendar size={14} className="text-slate-500" />
                                                 {new Date(hotel.createdAt).toLocaleDateString()}
                                             </div>
                                         </td>
+
                                         <td className="p-4 text-right">
                                             <div className="flex items-center justify-end gap-3">
                                                 <button
@@ -105,6 +140,7 @@ const HotelApprovals = () => {
                                                 >
                                                     <CheckCircle size={16} /> Approve
                                                 </button>
+
                                                 <button
                                                     onClick={() => handleReject(hotel.id)}
                                                     className="p-2 bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-red-400 rounded-lg transition-colors"
@@ -120,6 +156,31 @@ const HotelApprovals = () => {
                     </table>
                 </div>
             </div>
+
+            {/* 🔥 Pagination Controls */}
+            {!loading && totalPages > 1 && (
+                <div className="flex justify-center items-center gap-4 mt-6">
+                    <button
+                        disabled={page === 0}
+                        onClick={() => setPage(prev => prev - 1)}
+                        className="px-4 py-2 bg-slate-700 text-slate-200 rounded disabled:opacity-50"
+                    >
+                        Previous
+                    </button>
+
+                    <span className="text-slate-300 text-sm">
+                        Page {page + 1} of {totalPages}
+                    </span>
+
+                    <button
+                        disabled={page + 1 >= totalPages}
+                        onClick={() => setPage(prev => prev + 1)}
+                        className="px-4 py-2 bg-slate-700 text-slate-200 rounded disabled:opacity-50"
+                    >
+                        Next
+                    </button>
+                </div>
+            )}
         </div>
     );
 };

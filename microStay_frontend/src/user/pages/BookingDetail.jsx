@@ -10,19 +10,8 @@ const BookingDetail = () => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        api.get(`/bookings/my`) // Fallback 
-            // Checking API list: /bookings/my-bookings returns list. /bookings/{id} is for Admin/Manager?
-            // User Service List shows:
-            // BookingController: /bookings/{id} -> getBookingById (Might be allowed for user if they own it? Let's try)
-            .then(res => {
-                // Fallback if individual endpoint fails or logic differs
-                const found = res.data.find(b => b.id.toString() === bookingId);
-                if (found) setBooking(found);
-                else {
-                    // Try direct
-                    api.get(`/bookings/\${bookingId}`).then(r => setBooking(r.data)).catch(e => console.error(e));
-                }
-            })
+        
+            api.get(`/bookings/${bookingId}`).then(r => setBooking(r.data)).catch(e => console.error(e))
             .catch(err => console.error(err))
             .finally(() => setLoading(false));
     }, [bookingId]);
@@ -39,8 +28,8 @@ const BookingDetail = () => {
                 </button>
 
                 <div className="flex justify-between items-start mb-6">
-                    <h1 className="text-3xl font-black text-slate-900">Booking #{booking.id}</h1>
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase \${
+                    <h1 className="text-3xl font-black text-slate-900">Booking #{booking.bookingId}</h1>
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
               booking.status === 'CONFIRMED' ? 'bg-green-100 text-green-700' :
               booking.status === 'CANCELLED' ? 'bg-red-100 text-red-700' :
               'bg-blue-100 text-blue-700'
@@ -53,7 +42,7 @@ const BookingDetail = () => {
 
                     {/* HEADER INFO */}
                     <div className="p-8 border-b border-gray-100">
-                        <h2 className="text-xl font-bold mb-1">Booking Details</h2>
+                        <h2 className="text-[#1A1A1A] text-xl font-bold mb-1">Booking Details</h2>
                         <p className="text-slate-500 text-sm">Booked on {new Date().toLocaleDateString()}</p>
                     </div>
 
@@ -83,7 +72,7 @@ const BookingDetail = () => {
                                 </h3>
                                 <div>
                                     <p className="text-xs text-slate-500 mb-1">Total Paid</p>
-                                    <p className="font-bold text-slate-900 text-xl">₹{booking.totalPrice}</p>
+                                    <p className="font-bold text-slate-900 text-xl">₹{booking.totalAmount}</p>
                                 </div>
                             </div>
                         </div>

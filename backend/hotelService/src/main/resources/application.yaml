@@ -1,9 +1,11 @@
 server:
   port: 8082
 
+
 spring:
   application:
     name: hotelService
+
 
   autoconfigure:
     exclude:
@@ -14,18 +16,22 @@ spring:
     config:
       enabled: false   # ⭐ ADD THIS
 
+
   data:
     mongodb:
       uri: mongodb://localhost:27017/hotel_db
 
+
   jackson:
     time-zone: Asia/Kolkata
+
 
   security:
     oauth2:
       resourceserver:
         jwt:
           issuer-uri: http://localhost:8080
+
 
 eureka:
   instance:

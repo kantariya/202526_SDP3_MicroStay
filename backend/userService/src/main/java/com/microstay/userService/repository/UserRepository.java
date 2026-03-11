@@ -6,7 +6,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByEmail(String email);
@@ -14,5 +16,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     List<User> findByEmailVerifiedFalseAndCreatedAtBefore(LocalDateTime time);
     long countByRole(Role role);
     List<User> findByRole(Role role);
+    List<User> findAllByIdIn(Set<Long> ids);
 
 }

@@ -7,6 +7,8 @@ const BookingSuccess = () => {
     const location = useLocation();
     const { booking } = location.state || {};
 
+    console.log("BookingSuccess received booking:", booking);
+
     if (!booking) {
         return <div className="p-10 text-center"><button onClick={() => navigate('/')}>Go Home</button></div>;
     }
@@ -21,13 +23,13 @@ const BookingSuccess = () => {
 
                 <h1 className="text-3xl font-black text-slate-900 mb-4">Booking Confirmed!</h1>
                 <p className="text-slate-500 mb-8">
-                    Thank you for booking with MicroStay. Your reservation ID is <span className="font-mono font-bold text-slate-900">#{booking.id}</span>
+                    Thank you for booking with MicroStay. Your reservation ID is <span className="font-mono font-bold text-slate-900">#{booking.bookingId}</span>
                 </p>
 
                 <div className="bg-gray-50 p-6 rounded-3xl mb-8 text-left border border-gray-100">
                     <div className="flex justify-between mb-2">
                         <span className="text-sm text-slate-500">Amount Paid</span>
-                        <span className="font-bold text-slate-900">₹{booking.totalPrice}</span>
+                        <span className="font-bold text-slate-900">₹{booking.totalAmount}</span>
                     </div>
                     <div className="flex justify-between mb-2">
                         <span className="text-sm text-slate-500">Status</span>

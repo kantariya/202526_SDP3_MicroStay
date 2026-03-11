@@ -45,7 +45,7 @@ const ManagerSidebar = () => {
                         key={item.path}
                         to={item.path}
                         className={({ isActive }) =>
-                            `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors \${isActive
+                            `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
                                 ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30'
                                 : 'text-slate-400 hover:bg-slate-700 hover:text-slate-100'
                             }`

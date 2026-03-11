@@ -76,6 +76,7 @@ public class PaymentService {
             double expected = booking.getTotalAmount();
             double actual = request.getAmount();
             if (Math.abs(expected - actual) > 0.01) {
+                System.out.println("Amount mismatch: expected " + expected + " but got " + actual);
                 throw new ResponseStatusException(BAD_REQUEST, "Amount mismatch for booking");
             }
         }

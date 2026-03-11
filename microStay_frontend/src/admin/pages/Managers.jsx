@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Ban, RefreshCw, User, Mail, Shield, UserPlus, KeyRound } from 'lucide-react';
+import { Search, Ban, RefreshCw, User, Mail, Shield, UserPlus, KeyRound , Check } from 'lucide-react';
 import api from '../utils/api';
 import CreateManagerModal from '../components/CreateManagerModal';
 
@@ -34,6 +34,21 @@ const Managers = () => {
             } catch (error) {
                 console.error("Error disabling manager:", error);
                 alert("Failed to disable manager.");
+            }
+        }
+    };
+
+    const handleEnableManager = async (id) => {
+        if (window.confirm("Are you sure you want to enable this manager account?")) {
+            try {
+                await api.put(`/admin/managers/${id}/enable`);
+                setManagers(managers.map(m =>
+                    m.id === id ? { ...m, enabled: true } : m
+                ));
+                alert("Manager enabled successfully.");
+            } catch (error) {
+                console.error("Error enabling manager:", error);
+                alert("Failed to enable manager.");
             }
         }
     };
@@ -90,16 +105,15 @@ const Managers = () => {
                             <tr className="bg-slate-700/50 text-slate-300 text-xs uppercase tracking-wider">
                                 <th className="p-4 font-semibold">Manager</th>
                                 <th className="p-4 font-semibold">Contact</th>
-                                <th className="p-4 font-semibold">Hotel Access</th>
                                 <th className="p-4 font-semibold">Status</th>
                                 <th className="p-4 font-semibold text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-700">
                             {loading ? (
-                                <tr><td colSpan="5" className="p-8 text-center text-slate-400">Loading managers...</td></tr>
+                                <tr><td colSpan="4" className="p-8 text-center text-slate-400">Loading managers...</td></tr>
                             ) : filteredManagers.length === 0 ? (
-                                <tr><td colSpan="5" className="p-8 text-center text-slate-400">No managers found.</td></tr>
+                                <tr><td colSpan="4" className="p-8 text-center text-slate-400">No managers found.</td></tr>
                             ) : (
                                 filteredManagers.map(manager => (
                                     <tr key={manager.id} className="hover:bg-slate-700/30 transition-colors">
@@ -119,9 +133,6 @@ const Managers = () => {
                                                 <Mail size={14} className="text-slate-500" /> {manager.email}
                                             </div>
                                         </td>
-                                        <td className="p-4 text-xs text-slate-400">
-                                            {manager.managedHotels?.length || 0} Hotels
-                                        </td>
                                         <td className="p-4">
                                             <span className={`px-2 py-1 rounded text-xs font-bold ${manager.enabled !== false ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
                                                 {manager.enabled !== false ? 'ACTIVE' : 'DISABLED'}
@@ -136,13 +147,23 @@ const Managers = () => {
                                                 >
                                                     <KeyRound size={16} />
                                                 </button>
-                                                <button
-                                                    onClick={() => handleDisableManager(manager.id)}
-                                                    className="p-1 hover:bg-red-500/10 text-red-500 rounded transition-colors"
-                                                    title="Disable Manager"
-                                                >
-                                                    <Ban size={16} />
-                                                </button>
+                                                {manager.enabled !== false ? (
+                                                    <button
+                                                        onClick={() => handleDisableManager(manager.id)}
+                                                        className="p-1 hover:bg-red-500/10 text-red-500 rounded transition-colors"
+                                                        title="Disable Manager"
+                                                    >
+                                                        <Ban size={16} />
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => handleEnableManager(manager.id)}
+                                                        className="p-1 hover:bg-green-500/10 text-green-500 rounded transition-colors"
+                                                        title="Enable Manager"
+                                                    >
+                                                        <Check size={16} />
+                                                    </button>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>

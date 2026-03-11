@@ -2,12 +2,18 @@ package com.microstay.userService.service;
 
 import com.microstay.userService.dto.RegisterRequest;
 import com.microstay.userService.dto.UserResponse;
+import com.microstay.userService.dto.UserUpdateRequest;
 import com.microstay.userService.entity.Role;
 import com.microstay.userService.entity.User;
 import com.microstay.userService.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -47,4 +53,68 @@ public class UserService {
                 .createdAt(savedUser.getCreatedAt())
                 .build();
     }
+
+    public Map<String, String> getUsernames(Set<String> userIds) {
+
+        // Convert String → Long
+        Set<Long> longIds = userIds.stream()
+                .map(Long::parseLong)
+                .collect(Collectors.toSet());
+
+        List<User> users = userRepository.findAllByIdIn(longIds);
+
+        return users.stream()
+                .collect(Collectors.toMap(
+                        user -> user.getId().toString(),
+                        user -> user.getFirstName() + " " + user.getLastName()
+                ));
+    }
+
+
+    public UserResponse updateUserProfile(Long userId, UserUpdateRequest request) {
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (request.getFirstName() != null) {
+            user.setFirstName(request.getFirstName());
+        }
+
+        if (request.getLastName() != null) {
+            user.setLastName(request.getLastName());
+        }
+
+        if (request.getPhone() != null) {
+            user.setPhone(request.getPhone());
+        }
+
+        if (request.getAddress() != null) {
+            user.setAddress(request.getAddress());
+        }
+
+        if (request.getCity() != null) {
+            user.setCity(request.getCity());
+        }
+
+        if (request.getCountry() != null) {
+            user.setCountry(request.getCountry());
+        }
+
+        userRepository.save(user);
+
+        return UserResponse.builder()
+                .id(user.getId())
+                .email(user.getEmail())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .phone(user.getPhone())
+                .address(user.getAddress())
+                .city(user.getCity())
+                .country(user.getCountry())
+                .role(user.getRole())
+                .createdAt(user.getCreatedAt())
+                .build();
+    }
+
+
 }

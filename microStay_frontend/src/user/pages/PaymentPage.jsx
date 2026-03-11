@@ -6,11 +6,12 @@ import api from '../../utils/api';
 const PaymentPage = () => {
     const navigate = useNavigate();
     const location = useLocation();
-    const { hotel, room, checkIn, checkOut, guests, days, totalPrice, guestDetails } = location.state || {};
+    const { hotel, room, checkIn, checkOut, adults, children, numberOfRooms, days, totalPrice, guestDetails } = location.state || {};
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const [method, setMethod] = useState('card');
+    const [paymentMethod, setPaymentMethod] = useState('MOCK');
+    const [mockResult, setMockResult] = useState('SUCCESS');
 
     useEffect(() => {
         if (!hotel) navigate('/');
@@ -21,41 +22,50 @@ const PaymentPage = () => {
         setError('');
 
         try {
-            // 1. Create Booking
-            const bookingData = {
+            // 1. Initiate Booking
+            const initiateBookingRequest = {
                 hotelId: hotel.id,
-                roomId: room.id,
+                hotelName: hotel.name,
                 checkInDate: checkIn,
                 checkOutDate: checkOut,
-                totalPrice: totalPrice,
-                status: 'PENDING', // Initially pending
-                guestName: `\${guestDetails.firstName} \${guestDetails.lastName}`,
-                guestEmail: guestDetails.email,
-                guestPhone: guestDetails.phone
+                rooms: [{
+                    roomId: room.roomId,
+                    roomType: room.roomType,
+                    pricePerNight: room.pricing.basePrice,
+                    numberOfRooms: numberOfRooms,
+                    adults: adults,
+                    children: children
+                }],
+                guestDetails: guestDetails // Array of {fullName, age, aadharNumber}
             };
 
-            const bookingRes = await api.post('/bookings/initiate', bookingData);
+            console.log('Initiating booking with:', initiateBookingRequest);
+            const bookingRes = await api.post('/bookings/initiate', initiateBookingRequest);
             const booking = bookingRes.data;
 
-            // 2. Process Payment (Mock)
-            const paymentData = {
-                bookingId: booking.id,
+            console.log('Booking initiated:', booking);
+
+            // 2. Process Payment
+            const paymentRequest = {
+                bookingId: booking.bookingId,
                 amount: totalPrice,
-                paymentMethod: method.toUpperCase(),
-                transactionId: `TXN_\${Date.now()}`
+                currency: 'INR',
+                paymentGateway: 'MOCK',
+                mockResult: mockResult // SUCCESS or FAILED
             };
 
-            await api.post('/payments', paymentData);
+            console.log('Processing payment with:', paymentRequest);
+            const paymentRes = await api.post('/payments', paymentRequest);
 
-            // 3. Confirm Booking
-            await api.post(`/bookings/\${booking.bookingReference}/confirm`);
+            console.log('Payment response:', paymentRes.data);
 
-            // 3. Success
-            navigate('/booking/success', { state: { booking } });
+            // 3. Navigate to Success Page
+            navigate('/booking/success', { state: { booking, payment: paymentRes.data } });
 
         } catch (err) {
             console.error("Payment failed", err);
-            setError('Payment failed. Please try again or contact support.');
+            const errorMessage = err.response?.data?.message || 'Payment failed. Please try again or contact support.';
+            setError(errorMessage);
         } finally {
             setLoading(false);
         }
@@ -81,7 +91,8 @@ const PaymentPage = () => {
                         </div>
                         <div className="text-right">
                             <p className="text-sm font-bold text-blue-900">{hotel.name}</p>
-                            <p className="text-xs text-blue-400">{room.roomType} x {days} nights</p>
+                            <p className="text-xs text-blue-600">{room.roomType} x {numberOfRooms} room(s)</p>
+                            <p className="text-xs text-blue-400">{days} night{days > 1 ? 's' : ''}</p>
                         </div>
                     </div>
 
@@ -91,27 +102,28 @@ const PaymentPage = () => {
                         </div>
                     )}
 
-                    <h3 className="text-lg font-bold text-slate-900 mb-4">Select Payment Method</h3>
+                    <h3 className="text-lg font-bold text-slate-900 mb-4">Payment Simulation (Test Mode)</h3>
                     <div className="space-y-3 mb-8">
                         <div
-                            onClick={() => setMethod('card')}
-                            className={`p-4 rounded-xl border-2 flex items-center gap-4 cursor-pointer transition \${method === 'card' ? 'border-blue-600 bg-blue-50/50' : 'border-gray-100 hover:border-blue-200'}`}
+                            onClick={() => setMockResult('SUCCESS')}
+                            className={`p-4 rounded-xl border-2 flex items-center gap-4 cursor-pointer transition ${mockResult === 'SUCCESS' ? 'border-green-600 bg-green-50/50' : 'border-gray-100 hover:border-green-200'}`}
                         >
-                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center \${method === 'card' ? 'border-blue-600' : 'border-gray-300'}`}>
-                                {method === 'card' && <div className="w-2.5 h-2.5 bg-blue-600 rounded-full" />}
+                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${mockResult === 'SUCCESS' ? 'border-green-600' : 'border-gray-300'}`}>
+                                {mockResult === 'SUCCESS' && <div className="w-2.5 h-2.5 bg-green-600 rounded-full" />}
                             </div>
-                            <CreditCard size={24} className="text-slate-700" />
-                            <span className="font-bold text-slate-700">Credit / Debit Card</span>
+                            <CheckCircle size={24} className="text-green-600" />
+                            <span className="font-bold text-slate-700">✓ Simulate Successful Payment</span>
                         </div>
 
                         <div
-                            onClick={() => setMethod('upi')}
-                            className={`p-4 rounded-xl border-2 flex items-center gap-4 cursor-pointer transition \${method === 'upi' ? 'border-blue-600 bg-blue-50/50' : 'border-gray-100 hover:border-blue-200'}`}
+                            onClick={() => setMockResult('FAILED')}
+                            className={`p-4 rounded-xl border-2 flex items-center gap-4 cursor-pointer transition ${mockResult === 'FAILED' ? 'border-red-600 bg-red-50/50' : 'border-gray-100 hover:border-red-200'}`}
                         >
-                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center \${method === 'upi' ? 'border-blue-600' : 'border-gray-300'}`}>
-                                {method === 'upi' && <div className="w-2.5 h-2.5 bg-blue-600 rounded-full" />}
+                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${mockResult === 'FAILED' ? 'border-red-600' : 'border-gray-300'}`}>
+                                {mockResult === 'FAILED' && <div className="w-2.5 h-2.5 bg-red-600 rounded-full" />}
                             </div>
-                            <span className="font-bold text-slate-700">UPI / QR Code</span>
+                            <CreditCard size={24} className="text-red-600" />
+                            <span className="font-bold text-slate-700">✗ Simulate Failed Payment</span>
                         </div>
                     </div>
 

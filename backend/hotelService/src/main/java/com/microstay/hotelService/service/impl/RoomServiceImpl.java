@@ -7,11 +7,22 @@ import com.microstay.hotelService.service.RoomService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.Collections;
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class RoomServiceImpl implements RoomService {
 
     private final HotelRepository hotelRepository;
+
+    public List<Room> getRoomsByHotelId(String hotelId) {
+
+        Hotel hotel = hotelRepository.findById(hotelId)
+                .orElseThrow(() -> new RuntimeException("Hotel not found"));
+
+        return hotel.getRooms() != null ? hotel.getRooms() : Collections.emptyList();
+    }
 
     @Override
     public Room addRoom(String hotelId, Room room) {

@@ -28,7 +28,7 @@ public class InitiateBookingRequest {
     @NotEmpty
     private List<BookedRoomRequest> rooms;
 
-    @Valid
-    private GuestDetails guestDetails;
+    @NotEmpty
+    private List<GuestDetails> guestDetails;
 }
 

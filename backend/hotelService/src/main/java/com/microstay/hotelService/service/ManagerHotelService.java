@@ -1,10 +1,13 @@
 package com.microstay.hotelService.service;
 
+import com.microstay.hotelService.client.dto.Role;
 import com.microstay.hotelService.entity.*;
 import com.microstay.hotelService.repository.HotelRepository;
 import com.microstay.hotelService.security.SecurityUtils;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import com.microstay.hotelService.client.UserClient;
 
 import java.time.Instant;
 import java.util.*;
@@ -14,23 +17,31 @@ import java.util.*;
 public class ManagerHotelService {
 
     private final HotelRepository hotelRepository;
+    private final UserClient userClient;
 
     // ------------------------------------------------
     // helper — ownership check
     // ------------------------------------------------
 
-    private void checkOwnership(Hotel hotel) {
+    private void checkOwnership(Hotel hotel,String managerId) {
+        ResponseEntity<Role> response =
+                userClient.getUserRole(Long.parseLong(managerId));
 
-        if (SecurityUtils.isAdmin()) return;
+        Role role = Role.USER;
 
-        String managerId = SecurityUtils.currentUserId();
+        if (response.getStatusCode().is2xxSuccessful() || response.getBody() != null) {
+            role = response.getBody();
+        }
+
+
+        if (role==Role.ADMIN) return;
 
         if (!managerId.equals(hotel.getManagerId())) {
             throw new RuntimeException("Not your hotel");
         }
     }
 
-    private Hotel getHotel(String hotelId) {
+    public Hotel getHotel(String hotelId) {
         return hotelRepository.findById(hotelId)
                 .orElseThrow(() -> new RuntimeException("Hotel not found"));
     }
@@ -39,32 +50,79 @@ public class ManagerHotelService {
     // my hotels
     // ------------------------------------------------
 
-    public List<Hotel> myHotels() {
+    public List<Hotel> myHotels(String managerId) {
 
         if (SecurityUtils.isAdmin()) {
             return hotelRepository.findAll();
         }
 
-        return hotelRepository.findByManagerId(
-                SecurityUtils.currentUserId());
+        return hotelRepository.findByManagerId(managerId);
     }
 
     // ------------------------------------------------
     // update hotel
     // ------------------------------------------------
 
-    public Hotel updateHotel(String hotelId, Hotel updated) {
+    public Hotel updateHotel(String hotelId, Hotel updated, String managerId) {
 
         Hotel hotel = getHotel(hotelId);
-        checkOwnership(hotel);
+        checkOwnership(hotel, managerId);
 
+        // ===== BASIC INFO =====
+        hotel.setName(updated.getName());
+        hotel.setBrand(updated.getBrand());
         hotel.setDescription(updated.getDescription());
-        hotel.setFacilities(updated.getFacilities());
-        hotel.setImages(updated.getImages());
-        hotel.setContact(updated.getContact());
-        hotel.setPolicies(updated.getPolicies());
+        hotel.setStarRating(updated.getStarRating());
+
         hotel.setCheckInTime(updated.getCheckInTime());
         hotel.setCheckOutTime(updated.getCheckOutTime());
+
+        // ===== FACILITIES & IMAGES =====
+        hotel.setFacilities(updated.getFacilities());
+        hotel.setImages(updated.getImages());
+
+        // ===== LOCATION =====
+        if (hotel.getLocation() == null) {
+            hotel.setLocation(new Hotel.Location());
+        }
+
+        Hotel.Location updatedLocation = updated.getLocation();
+        Hotel.Location location = hotel.getLocation();
+
+        if (updatedLocation != null) {
+            location.setAddress(updatedLocation.getAddress());
+            location.setCity(updatedLocation.getCity());
+            location.setState(updatedLocation.getState());
+            location.setCountry(updatedLocation.getCountry());
+            location.setPincode(updatedLocation.getPincode());
+
+            if (updatedLocation.getGeo() != null) {
+                location.setGeo(updatedLocation.getGeo());
+            }
+        }
+
+        // ===== CONTACT =====
+        if (hotel.getContact() == null) {
+            hotel.setContact(new Hotel.Contact());
+        }
+
+        Hotel.Contact updatedContact = updated.getContact();
+        if (updatedContact != null) {
+            hotel.getContact().setPhone(updatedContact.getPhone());
+            hotel.getContact().setEmail(updatedContact.getEmail());
+        }
+
+        // ===== POLICIES =====
+        if (hotel.getPolicies() == null) {
+            hotel.setPolicies(new Hotel.Policies());
+        }
+
+        Hotel.Policies updatedPolicies = updated.getPolicies();
+        if (updatedPolicies != null) {
+            hotel.getPolicies().setCancellation(updatedPolicies.getCancellation());
+            hotel.getPolicies().setPetsAllowed(updatedPolicies.getPetsAllowed());
+            hotel.getPolicies().setSmokingAllowed(updatedPolicies.getSmokingAllowed());
+        }
 
         hotel.setUpdatedAt(Instant.now());
 
@@ -75,10 +133,10 @@ public class ManagerHotelService {
     // add room
     // ------------------------------------------------
 
-    public Hotel addRoom(String hotelId, Room room) {
+    public Hotel addRoom(String hotelId, Room room,String managerId) {
 
         Hotel hotel = getHotel(hotelId);
-        checkOwnership(hotel);
+        checkOwnership(hotel,managerId);
 
         room.setRoomId(UUID.randomUUID().toString());
 
@@ -98,10 +156,11 @@ public class ManagerHotelService {
 
     public Hotel updateRoom(String hotelId,
                             String roomId,
-                            Room updated) {
+                            Room updated,
+                            String managerId) {
 
         Hotel hotel = getHotel(hotelId);
-        checkOwnership(hotel);
+        checkOwnership(hotel,managerId);
 
         hotel.getRooms().forEach(r -> {
             if (r.getRoomId().equals(roomId)) {
@@ -110,6 +169,7 @@ public class ManagerHotelService {
                 r.setMaxAdults(updated.getMaxAdults());
                 r.setMaxChildren(updated.getMaxChildren());
                 r.setPricing(updated.getPricing());
+                r.setInventory(updated.getInventory());
                 r.setAmenities(updated.getAmenities());
                 r.setImages(updated.getImages());
                 r.setActive(updated.getActive());
@@ -125,10 +185,10 @@ public class ManagerHotelService {
     // delete room
     // ------------------------------------------------
 
-    public Hotel deleteRoom(String hotelId, String roomId) {
+    public Hotel deleteRoom(String hotelId, String roomId,String managerId) {
 
         Hotel hotel = getHotel(hotelId);
-        checkOwnership(hotel);
+        checkOwnership(hotel,managerId);
 
         hotel.getRooms()
                 .removeIf(r -> r.getRoomId().equals(roomId));
@@ -144,10 +204,11 @@ public class ManagerHotelService {
 
     public Hotel setAvailability(String hotelId,
                                  String roomId,
-                                 Availability req) {
+                                 Availability req,
+                                 String managerId) {
 
         Hotel hotel = getHotel(hotelId);
-        checkOwnership(hotel);
+        checkOwnership(hotel,managerId);
 
         Room room = hotel.getRooms().stream()
                 .filter(r -> r.getRoomId().equals(roomId))

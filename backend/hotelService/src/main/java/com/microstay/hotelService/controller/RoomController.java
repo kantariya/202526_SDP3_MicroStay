@@ -7,12 +7,22 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/hotels/{hotelId}/rooms")
 @RequiredArgsConstructor
 public class RoomController {
 
     private final RoomService roomService;
+
+    @GetMapping
+    public ResponseEntity<List<Room>> getAllRoomsByHotel(
+            @PathVariable String hotelId) {
+
+        List<Room> rooms = roomService.getRoomsByHotelId(hotelId);
+        return ResponseEntity.ok(rooms);
+    }
 
     @PostMapping
     public ResponseEntity<Room> addRoom(

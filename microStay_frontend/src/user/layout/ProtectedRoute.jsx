@@ -15,3 +15,21 @@ export const PublicRoute = () => {
   // If token exists, redirect to dashboard (or home)
   return token ? <Navigate to="/" replace /> : <Outlet />;
 };
+
+export const ProtectedAdminRoute = () => {
+  const token = localStorage.getItem("token");
+
+  if (!token) return <Navigate to="/login" replace />;
+
+  try {
+    const { role } = JSON.parse(atob(token.split(".")[1]));
+
+    if (role !== "ADMIN") {
+      return <Navigate to="/unauthorized" replace />;
+    }
+
+    return <Outlet />;
+  } catch {
+    return <Navigate to="/login" replace />;
+  }
+};

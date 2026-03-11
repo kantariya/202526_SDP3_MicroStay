@@ -2,8 +2,10 @@ spring:
   application:
     name: discoveryServer
 
+
 server:
   port: 8761 # The standard port for Eureka
+
 
 eureka:
   client:

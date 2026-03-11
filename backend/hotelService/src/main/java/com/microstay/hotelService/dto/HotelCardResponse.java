@@ -10,6 +10,7 @@ public class HotelCardResponse {
     private String id;
     private String name;
     private String city;
+    private String country;
     private Integer starRating;
     private Double averageRating;
     private Double startingPrice;

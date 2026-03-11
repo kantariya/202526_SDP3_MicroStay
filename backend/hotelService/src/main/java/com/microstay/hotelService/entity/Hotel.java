@@ -3,7 +3,10 @@ package com.microstay.hotelService.entity;
 import java.time.Instant;
 import java.util.List;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import lombok.AllArgsConstructor;
@@ -21,12 +24,17 @@ public class Hotel {
     @Id
     private String id;
 
+    @Indexed
     private String name;
     private String brand;
     private String description;
+
+    @Min(1)
+    @Max(5)
     private Integer starRating;
 
-    private String managerId;   // user-service userId
+    @Indexed
+    private String managerId;   // userService userId
 
     private Location location;
     private Contact contact;
@@ -43,8 +51,10 @@ public class Hotel {
     // Embedded rooms
     private List<Room> rooms;
 
-    private String status; // ACTIVE / INACTIVE
+    @Indexed
+    private HotelStatus status;
 
+    @Indexed
     private Instant createdAt;
     private Instant updatedAt;
 

@@ -7,6 +7,7 @@ const BookingCard = ({ booking, hotel, onCancel }) => {
     const today = new Date();
     const isUpcoming = new Date(booking.checkInDate) > today && booking.status === 'CONFIRMED';
 
+
     // Status Config
     const getStatusConfig = (status) => {
         switch (status) {
@@ -32,7 +33,7 @@ const BookingCard = ({ booking, hotel, onCancel }) => {
                 <div className="flex gap-4">
                     <div className="w-24 h-24 rounded-2xl overflow-hidden shrink-0">
                         <img
-                            src={hotel?.images?.[0] || hotel?.image || 'https://via.placeholder.com/150'}
+                            src={hotel?.images?.[0] || booking?.image || 'https://via.placeholder.com/150'}
                             className="w-full h-full object-cover"
                             alt={hotel?.name || 'Hotel'}
                         />
@@ -42,9 +43,9 @@ const BookingCard = ({ booking, hotel, onCancel }) => {
                             {hotel?.name || booking.hotelName}
                         </h3>
                         <p className="text-sm text-slate-500 font-medium mb-2 flex items-center gap-1">
-                            <MapPin size={14} /> {hotel ? `\${hotel.location.city}, \${hotel.location.country}` : 'Location'}
+                            <MapPin size={14} /> {hotel ? `${booking.city || hotel.location?.city}, ${booking.country || hotel.location?.country}` : 'Location'}
                         </p>
-                        <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold uppercase \${color}`}>
+                        <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold uppercase ${color}`}>
                             <Icon size={12} /> {booking.status}
                         </div>
                     </div>
@@ -75,13 +76,13 @@ const BookingCard = ({ booking, hotel, onCancel }) => {
             {/* ACTIONS */}
             <div className="mt-6 pt-4 border-t border-gray-100 flex justify-between items-center">
                 <button
-                    onClick={() => navigate(`/booking/\${booking.bookingReference || booking.id}`)}
+                    onClick={() => navigate(`/booking/${booking.bookingReference || booking.bookingId}`)}
                     className="text-sm font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 transition"
                 >
                     View Details <ArrowRight size={16} />
                 </button>
 
-                {isUpcoming && (
+                {isUpcoming && onCancel && (
                     <button
                         onClick={() => onCancel(booking.bookingReference)}
                         className="text-xs font-bold text-red-600 bg-red-50 px-3 py-1.5 rounded-lg hover:bg-red-100 transition"

@@ -19,7 +19,7 @@ const BookingDetails = ({ booking, onClose, onCancel }) => {
             <div className="space-y-6">
                 {/* Status Badge */}
                 <div>
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold \${
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${
                          booking.status === 'CONFIRMED' ? 'bg-green-500/20 text-green-400' :
                          booking.status === 'CANCELLED' || booking.status === 'CANCELLED_ADMIN' ? 'bg-red-500/20 text-red-400' :
                          'bg-yellow-500/20 text-yellow-400'
@@ -67,7 +67,7 @@ const BookingDetails = ({ booking, onClose, onCancel }) => {
                     <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-2">
                         <CreditCard size={16} /> Payment
                     </h3>
-                    <p className="text-2xl font-bold text-slate-100">\${booking.amount}</p>
+                    <p className="text-2xl font-bold text-slate-100">₹${booking.amount}</p>
                     <p className="text-slate-400 text-sm">Status: {booking.paymentStatus || 'PENDING'}</p>
                 </div>
 

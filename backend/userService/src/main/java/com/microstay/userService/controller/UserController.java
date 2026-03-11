@@ -1,8 +1,11 @@
 package com.microstay.userService.controller;
 
 import com.microstay.userService.dto.UserResponse;
+import com.microstay.userService.dto.UserUpdateRequest;
+import com.microstay.userService.entity.Role;
 import com.microstay.userService.entity.User;
 import com.microstay.userService.repository.UserRepository;
+import com.microstay.userService.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -10,12 +13,17 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 @RestController
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
 public class UserController {
 
     private final UserRepository userRepository;
+    private final UserService userService;
 
     @GetMapping("/profile")
     public ResponseEntity<UserResponse> getMyProfile() {
@@ -57,5 +65,29 @@ public class UserController {
 
         return ResponseEntity.ok(username);
     }
+
+    @GetMapping("{userId}/role")
+    public ResponseEntity<Role> getUserRole(@PathVariable Long userId) {
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        return ResponseEntity.ok(user.getRole());
+    }
+
+    @PostMapping("/batch")
+    public Map<String, String> getUsernames(@RequestBody Set<String> userIds) {
+        return userService.getUsernames(userIds);
+    }
+
+    @PatchMapping("/profile")
+    public ResponseEntity<UserResponse> updateProfile(
+            @RequestBody UserUpdateRequest request,
+            @RequestHeader("X-User-Id") Long userId) {
+
+        return ResponseEntity.ok(userService.updateUserProfile(userId, request));
+    }
+
+
 
 }

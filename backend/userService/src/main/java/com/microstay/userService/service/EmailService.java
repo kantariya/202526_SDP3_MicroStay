@@ -31,26 +31,10 @@ public class EmailService {
     @Async
     public void sendManagerCredentialsEmail(
             String to,
-            String name,
-            String tempPassword
+            String subject,
+            String html
     ) {
-
-        String html = """
-        <h2>Hotel Manager Account Created</h2>
-        <p>Hello %s,</p>
-
-        <p>Your manager account has been created by Admin.</p>
-
-        <p><b>Email:</b> %s</p>
-        <p><b>Temporary Password:</b> %s</p>
-
-        <p>Please login and change your password immediately.</p>
-
-        <br>
-        <p>MicroStay Team</p>
-        """.formatted(name, to, tempPassword);
-
-        sendHtml(to, "Manager Account Created", html);
+        sendHtml(to, subject, html);
     }
 
 }

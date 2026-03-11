@@ -11,6 +11,7 @@ import com.microstay.bookingService.repository.BookingRepository;
 import com.microstay.contract.hotelContract.dto.AvailabilityRequest;
 import com.microstay.contract.hotelContract.dto.AvailabilityResponse;
 import com.microstay.contract.hotelContract.dto.ConfirmBookingRequest;
+import com.microstay.contract.hotelContract.dto.RoomType;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -92,7 +93,7 @@ public class BookingService {
                                                                 : "UNKNOWN")
                                 .checkInDate(request.getCheckInDate())
                                 .checkOutDate(request.getCheckOutDate())
-                                .guestDetails(request.getGuestDetails())
+                                .guestDetails(maskAadharNumbers(request.getGuestDetails()))
                                 .status(BookingStatus.INITIATED)
                                 .currency(
                                                 availability.getCurrency() != null
@@ -208,9 +209,9 @@ public class BookingService {
                 return BookedRoom.builder()
                                 .roomId(request.getRoomId())
                                 .roomType(
-                                                request.getRoomType() != null && !request.getRoomType().isBlank()
+                                                request.getRoomType() != null
                                                                 ? request.getRoomType()
-                                                                : "STANDARD")
+                                                                : RoomType.STANDARD)
                                 .numberOfRooms(request.getNumberOfRooms())
                                 .adults(request.getAdults())
                                 .children(request.getChildren())
@@ -331,6 +332,22 @@ public class BookingService {
                                 .withMatcher("status", match -> match.exact());
 
                 return bookingRepository.findAll(org.springframework.data.domain.Example.of(probe, matcher));
+        }
+
+        /**
+         * Masks Aadhar numbers in guest details, keeping only the last 4 digits
+         * Format: ****XXXX where XXXX are the last 4 digits
+         */
+        private List<GuestDetails> maskAadharNumbers(List<GuestDetails> guestDetails) {
+                return guestDetails.stream()
+                                .map(guest -> {
+                                        if (guest.getAadharNumber() != null && guest.getAadharNumber().length() >= 4) {
+                                                String maskedAadhar = "****" + guest.getAadharNumber().substring(guest.getAadharNumber().length() - 4);
+                                                guest.setAadharNumber(maskedAadhar);
+                                        }
+                                        return guest;
+                                })
+                                .toList();
         }
 
 }

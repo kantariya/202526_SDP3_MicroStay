@@ -34,23 +34,16 @@ public class AdminUserService {
                 .orElseThrow();
     }
 
-    // disable manager
-    public User disableManager(String id) {
-
+    // disable user
+    public User disableUser(String id) {
         User u = getUser(id);
-
-        if (u.getRole() != Role.HOTEL_MANAGER) {
-            throw new RuntimeException("Not a manager");
-        }
-
         u.SetEnabled(false);
         return userRepository.save(u);
     }
 
-    // disable user (or manager)
-    public User disableUser(String id) {
+    public User enableUser(String id) {
         User u = getUser(id);
-        u.SetEnabled(false);
+        u.SetEnabled(true);
         return userRepository.save(u);
     }
 
@@ -64,11 +57,73 @@ public class AdminUserService {
         u.setPassword(passwordEncoder.encode(temp));
         userRepository.save(u);
 
+        String html = """
+        <h2>Password Updated</h2>
+        <p>Hello %s,</p>
+
+        <p>Your password has been updated by Admin.</p>
+
+        <p><b>Email:</b> %s</p>
+        <p><b>Temporary Password:</b> %s</p>
+
+        <p>Please login and change your password immediately.</p>
+
+        <br>
+        <p>MicroStay Team</p>
+        """.formatted(u.getFirstName(), u.getEmail(), temp);
+
         emailService.sendManagerCredentialsEmail(
                 u.getEmail(),
-                u.getFirstName(),
-                temp);
+                "Password Updated by Admin",
+                html
+        );
 
         return "Password reset and emailed";
+    }
+
+    public String changeRole(String id, Role newRole) {
+
+        if(newRole == Role.ADMIN || newRole==Role.USER) {
+            return "Cannot assign ADMIN or USERx role through this endpoint";
+        }
+
+        User user = getUser(id);
+
+        Role oldRole = user.getRole();
+
+        if (oldRole == newRole) {
+            return "User already has role: " + newRole;
+        }
+
+        user.setRole(newRole);
+        userRepository.save(user);
+
+        String html = """
+        <h2>Role Updated</h2>
+        <p>Hello %s,</p>
+
+        <p>Your account role has been updated by Admin.</p>
+
+        <p><b>Previous Role:</b> %s</p>
+        <p><b>New Role:</b> %s</p>
+
+        <br>
+        <p>If you have any questions, contact support.</p>
+
+        <br>
+        <p>MicroStay Team</p>
+        """.formatted(
+                user.getFirstName(),
+                oldRole,
+                newRole
+        );
+
+        emailService.sendManagerCredentialsEmail(
+                user.getEmail(),
+                "Role Updated by Admin",
+                html
+        );
+
+        return "User role updated successfully";
     }
 }

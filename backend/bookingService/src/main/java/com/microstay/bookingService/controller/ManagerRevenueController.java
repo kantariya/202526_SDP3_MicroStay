@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/manager/revenue")
+@RequestMapping("/api/manager/revenue")
 @RequiredArgsConstructor
 public class ManagerRevenueController {
 
