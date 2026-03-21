@@ -60,6 +60,21 @@ public class ManagerHotelService {
     }
 
     // ------------------------------------------------
+    // create hotel
+    // ------------------------------------------------
+
+    public Hotel createHotel(Hotel hotel, String managerId) {
+        hotel.setId(null); // Ensure new
+        hotel.setManagerId(managerId);
+        hotel.setStatus(HotelStatus.PENDING);
+        hotel.setCreatedAt(Instant.now());
+        hotel.setUpdatedAt(Instant.now());
+        hotel.setRooms(new ArrayList<>());
+        
+        return hotelRepository.save(hotel);
+    }
+
+    // ------------------------------------------------
     // update hotel
     // ------------------------------------------------
 

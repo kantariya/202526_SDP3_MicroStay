@@ -19,6 +19,13 @@ public class ManagerHotelController {
         return managerHotelService.myHotels(managerId);
     }
 
+    @PostMapping
+    public Hotel createHotel(
+            @RequestBody Hotel hotel,
+            @RequestHeader("X-User-Id") String managerId) {
+        return managerHotelService.createHotel(hotel, managerId);
+    }
+
     @GetMapping("/{hotelId}")
     public Hotel getHotel(@PathVariable String hotelId) {
         return managerHotelService.getHotel(hotelId);

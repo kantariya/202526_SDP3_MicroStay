@@ -3,10 +3,15 @@ package com.microstay.userService.service;
 import com.microstay.userService.client.BookingClient;
 import com.microstay.userService.client.HotelClient;
 import com.microstay.userService.dto.AdminStatsResponse;
+import com.microstay.userService.dto.UserGrowthDTO;
 import com.microstay.userService.entity.Role;
 import com.microstay.userService.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import java.util.function.Supplier;
 
@@ -27,12 +32,21 @@ public class AdminStatsService {
         Long pendingHotels = safeCall(() -> hotelClient.countHotelsByStatus("PENDING"));
         Long bookings = safeCall(() -> bookingClient.countBookings());
 
+        List<Map<String, Object>> growthData = userRepository.findUserGrowthData();
+        List<UserGrowthDTO> userGrowth = growthData.stream()
+                .map(data -> new UserGrowthDTO(
+                        (String) data.get("month"),
+                        ((Number) data.get("count")).longValue()
+                ))
+                .collect(Collectors.toList());
+
         return new AdminStatsResponse(
                 totalUsers,
                 totalManagers,
                 hotels,
                 pendingHotels,
-                bookings);
+                bookings,
+                userGrowth);
     }
 
     private Long safeCall(Supplier<Long> supplier) {

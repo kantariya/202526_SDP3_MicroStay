@@ -1,9 +1,12 @@
 package com.microstay.hotelService.service;
 
+import com.microstay.hotelService.client.UserClient;
+import com.microstay.hotelService.client.dto.Role;
 import com.microstay.hotelService.entity.Hotel;
 import com.microstay.hotelService.entity.HotelStatus;
 import com.microstay.hotelService.repository.HotelRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.data.domain.*;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -21,6 +24,7 @@ public class AdminHotelService {
 
     private final HotelRepository hotelRepository;
     private final MongoTemplate mongoTemplate;
+    private final UserClient userClient;
 
     // Admin create hotel
     public Hotel createHotel(Hotel hotel) {
@@ -36,7 +40,7 @@ public class AdminHotelService {
 
     // List hotels with optional filters
     public Page<Hotel> listHotels(
-            HotelStatus status,
+            List<HotelStatus> statuses,
             String managerId,
             String nameSearch,
             int page,
@@ -49,8 +53,8 @@ public class AdminHotelService {
         List<Criteria> criteriaList = new ArrayList<>();
 
         // Filter by status
-        if (status != null) {
-            criteriaList.add(Criteria.where("status").is(status));
+        if (statuses != null && !statuses.isEmpty()) {
+            criteriaList.add(Criteria.where("status").in(statuses));
         }
 
         // Filter by managerId
@@ -120,7 +124,22 @@ public class AdminHotelService {
         if (managerId == null || managerId.isBlank()) {
             hotel.setManagerId(null);
         } else {
-            hotel.setManagerId(managerId);
+            // ✅ VALIDATE MANAGER ROLE
+            try {
+                Long uid = Long.parseLong(managerId);
+                Role role = userClient.getUserRole(uid).getBody();
+                if (role != Role.HOTEL_MANAGER) {
+                    throw new RuntimeException("INVALID_MANAGER_ROLE");
+                }
+                hotel.setManagerId(managerId);
+            } catch (NumberFormatException e) {
+                throw new RuntimeException("Invalid Manager ID format");
+            } catch (Exception e) {
+                if ("INVALID_MANAGER_ROLE".equals(e.getMessage())) {
+                    throw new RuntimeException("The selected user does not have MANAGER role");
+                }
+                throw new RuntimeException("Failed to validate manager: " + e.getMessage());
+            }
         }
         hotel.setUpdatedAt(Instant.now());
 

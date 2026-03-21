@@ -12,4 +12,5 @@ public class AdminStatsResponse {
     private long totalHotels;
     private long pendingHotels;
     private long totalBookings;
+    private java.util.List<UserGrowthDTO> userGrowth;
 }

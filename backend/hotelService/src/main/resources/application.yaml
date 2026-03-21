@@ -41,3 +41,8 @@ eureka:
       defaultZone: http://localhost:8761/eureka
     register-with-eureka: true
     fetch-registry: true
+    
+gemini:
+  api:
+    key: AIzaSyCVZ7PPx3rl7JV_BbonYuOBvRwMOgMoqjk
+    url: https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent

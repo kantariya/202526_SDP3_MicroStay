@@ -17,5 +17,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     long countByRole(Role role);
     List<User> findByRole(Role role);
     List<User> findAllByIdIn(Set<Long> ids);
-
+    @org.springframework.data.jpa.repository.Query(value = "SELECT MONTHNAME(created_at) as month, COUNT(*) as count FROM users WHERE YEAR(created_at) = YEAR(CURDATE()) AND role = 'USER' GROUP BY MONTH(created_at), MONTHNAME(created_at) ORDER BY MONTH(created_at)", nativeQuery = true)
+    List<Map<String, Object>> findUserGrowthData();
 }

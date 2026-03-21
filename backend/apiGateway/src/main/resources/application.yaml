@@ -101,6 +101,12 @@ spring:
             - Path=/api/admin/**
 
 
+        - id: chat-service
+          uri: lb://HOTELSERVICE
+          predicates:
+            - Path=/api/chat/**
+
+
 
 
 eureka:
