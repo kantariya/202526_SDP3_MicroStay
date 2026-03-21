@@ -24,6 +24,13 @@ const HotelDetails = () => {
   const [hotel, setHotel] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [currentUserId, setCurrentUserId] = useState(null);
+
+  // Review form state
+  const [reviewForm, setReviewForm] = useState({ rating: 5, comment: '' });
+  const [editingReview, setEditingReview] = useState(null);
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const [reviewError, setReviewError] = useState('');
 
   // Booking State
   const [checkIn, setCheckIn] = useState('');
@@ -53,10 +60,80 @@ const HotelDetails = () => {
       ]);
       setHotel(hotelRes.data);
       setReviews(reviewRes.data);
+      // fetch current user profile to identify review ownership
+      try {
+        const me = await api.get('/users/profile');
+        setCurrentUserId(me.data.id || me.data.userId || null);
+      } catch (e) {
+        // ignore if not available
+      }
     } catch (err) {
       console.error("Failed to load hotel info", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ---------- Review Handlers ----------
+  const submitReview = async (e) => {
+    e && e.preventDefault();
+    setReviewError('');
+    if (!reviewForm.rating || !reviewForm.comment.trim()) {
+      setReviewError('Please provide rating and comment');
+      return;
+    }
+
+    setIsSubmittingReview(true);
+    try {
+      if (editingReview) {
+        // update
+        const rid = editingReview.id || editingReview.reviewId || editingReview._id;
+        await api.put(`/hotels/${hotelId}/reviews/${rid}`, {
+          rating: Number(reviewForm.rating),
+          comment: reviewForm.comment.trim()
+        });
+        setEditingReview(null);
+      } else {
+        // create
+        await api.post(`/hotels/${hotelId}/reviews`, {
+          rating: Number(reviewForm.rating),
+          comment: reviewForm.comment.trim()
+        });
+      }
+
+      // refresh reviews
+      const res = await api.get(`/hotels/${hotelId}/reviews`);
+      setReviews(res.data);
+      setReviewForm({ rating: 5, comment: '' });
+    } catch (err) {
+      console.error('Review submit failed', err);
+      setReviewError(err.response?.data?.message || 'Failed to submit review');
+    } finally {
+      setIsSubmittingReview(false);
+    }
+  };
+
+  const startEditReview = (rev) => {
+    setEditingReview(rev);
+    setReviewForm({ rating: rev.rating || 5, comment: rev.comment || '' });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const cancelEdit = () => {
+    setEditingReview(null);
+    setReviewForm({ rating: 5, comment: '' });
+    setReviewError('');
+  };
+
+  const deleteReview = async (reviewId) => {
+    if (!window.confirm('Delete this review?')) return;
+    try {
+      await api.delete(`/hotels/${hotelId}/reviews/${reviewId}`);
+      const res = await api.get(`/hotels/${hotelId}/reviews`);
+      setReviews(res.data);
+    } catch (err) {
+      console.error('Delete failed', err);
+      alert(err.response?.data?.message || 'Failed to delete review');
     }
   };
 
@@ -227,21 +304,64 @@ const HotelDetails = () => {
             {/* REVIEWS */}
             <div>
               <h3 className="text-lg font-bold text-slate-900 mb-6">Guest Reviews</h3>
+
+              {/* Reviews List */}
               {reviews.length > 0 ? (
                 <div className="grid gap-4">
-                  {reviews.map((rev, i) => (
-                    <ReviewCard key={i} review={rev} />
+                  {reviews.map((rev) => (
+                    <ReviewCard key={rev.id || rev.reviewId || rev._id} review={rev} onDelete={deleteReview} onEdit={startEditReview} currentUserId={currentUserId} />
                   ))}
                 </div>
               ) : (
-                <p className="text-slate-500 italic">No reviews yet.</p>
+                <p className="text-slate-500 italic">No reviews yet. Be the first to review.</p>
               )}
+
+              {/* Add / Edit Review Form */}
+              <div className="mt-2.5 bg-gray-50 border border-gray-100 rounded-2xl p-4 mb-6">
+                <h4 className="text-sm font-bold text-slate-800 mb-2">{editingReview ? 'Edit Your Review' : 'Write a Review'}</h4>
+                <form onSubmit={submitReview} className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <label className="text-xs font-bold text-slate-500 uppercase">Rating</label>
+                    <select
+                      value={reviewForm.rating}
+                      onChange={e => setReviewForm(prev => ({ ...prev, rating: e.target.value }))}
+                      className="text-[#1A1A1A] ml-2 bg-white border rounded px-3 py-2 text-sm"
+                    >
+                      {[5, 4, 3, 2, 1].map(r => (
+                        <option key={r} value={r}>{r} ★</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-500 uppercase">Comment</label>
+                    <textarea
+                      value={reviewForm.comment}
+                      onChange={e => setReviewForm(prev => ({ ...prev, comment: e.target.value }))}
+                      rows={3}
+                      className="text-[#1A1A1A] w-full mt-2 border border-gray-200 rounded-lg p-3 text-sm resize-none"
+                      placeholder="Share your experience..."
+                    />
+                  </div>
+
+                  {reviewError && <div className="text-red-600 text-sm">{reviewError}</div>}
+
+                  <div className="flex items-center gap-3">
+                    <button type="submit" disabled={isSubmittingReview} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold text-sm">
+                      {isSubmittingReview ? 'Saving...' : (editingReview ? 'Update Review' : 'Submit Review')}
+                    </button>
+                    {editingReview && (
+                      <button type="button" onClick={cancelEdit} className="text-sm text-slate-600">Cancel</button>
+                    )}
+                  </div>
+                </form>
+              </div>
             </div>
 
           </div>
 
           {/* RIGHT SIDEBAR (Booking Widget) */}
-          <div className="md:w-80 shrink-0">
+          <div className="md:w-85 shrink-0">
             <div className="sticky top-24 bg-white border border-gray-200 rounded-3xl p-6 shadow-xl shadow-blue-900/5">
               <h3 className="text-lg font-bold text-slate-900 mb-6">Book your stay</h3>
 

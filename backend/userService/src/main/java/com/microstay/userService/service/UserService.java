@@ -1,6 +1,7 @@
 package com.microstay.userService.service;
 
 import com.microstay.userService.dto.RegisterRequest;
+import com.microstay.userService.dto.TwoFactorToggleResponse;
 import com.microstay.userService.dto.UserResponse;
 import com.microstay.userService.dto.UserUpdateRequest;
 import com.microstay.userService.entity.Role;
@@ -116,5 +117,18 @@ public class UserService {
                 .build();
     }
 
+    public TwoFactorToggleResponse toggleTwoFactor(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        boolean updatedTwoFactorState = !user.isTwoFactorEnabled();
+        user.setTwoFactorEnabled(updatedTwoFactorState);
+        userRepository.save(user);
+
+        return TwoFactorToggleResponse.builder()
+                .userId(user.getId())
+                .twoFactorEnabled(user.isTwoFactorEnabled())
+                .build();
+    }
 
 }

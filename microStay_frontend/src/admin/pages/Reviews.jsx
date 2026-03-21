@@ -16,7 +16,39 @@ const AdminReviews = () => {
         try {
             const params = hotelFilter ? { hotelId: hotelFilter } : {};
             const response = await api.get('/admin/reviews', { params });
-            setReviews(response.data);
+
+            // Normalize response to an array of reviews
+            const raw = Array.isArray(response.data) ? response.data : (response.data.reviews || []);
+
+            // Enrich each review with userName and hotel card info
+            const enriched = await Promise.all(raw.map(async (rev) => {
+                const out = { ...rev };
+                try {
+                    if (rev.userId) {
+                        const ures = await api.get(`/users/${rev.userId}/username`);
+                        // backend may return { username: '...' } or { name: '...' }
+                        out.userName = ures.data || ures.data.name || out.userName || rev.userId;
+                    }
+                } catch (uerr) {
+                    console.warn(`Failed to fetch user ${rev.userId}:`, uerr);
+                }
+
+                try {
+                    if (rev.hotelId) {
+                        const hres = await api.get(`/hotels/${rev.hotelId}/card`);
+                        out.hotelName = hres.data.name || out.hotelName || `Hotel: ${rev.hotelId}`;
+                        out.hotelCity = hres.data.city || out.hotelCity || '';
+                        out.hotelCountry = hres.data.country || out.hotelCountry || '';
+                        out.hotelId = hres.data.id || rev.hotelId;
+                    }
+                } catch (herr) {
+                    console.warn(`Failed to fetch hotel ${rev.hotelId}:`, herr);
+                }
+
+                return out;
+            }));
+
+            setReviews(enriched);
         } catch (error) {
             console.error("Error fetching reviews:", error);
             setReviews([]);
@@ -78,7 +110,17 @@ const AdminReviews = () => {
                                         <div className="w-8 h-8 rounded bg-blue-600/20 flex items-center justify-center text-blue-400">
                                             <Building2 size={16} />
                                         </div>
-                                        <h3 className="font-bold text-slate-200">{review.hotelName || `Hotel: ${review.hotelId}`}</h3>
+                                        <div>
+                                            <div className='flex gap-5'>
+                                            <h3 className="font-bold text-slate-200">{review.hotelName || `Hotel: ${review.hotelId}`}</h3>
+                                            <p className="text-sm text-slate-400">{review.hotelId}</p>
+                                            </div>
+                                            {(review.hotelCity || review.hotelCountry) && (
+                                                <p className="text-[10px] text-slate-400 -mt-1 uppercase tracking-wider font-semibold">
+                                                    {review.hotelCity}{review.hotelCity && review.hotelCountry ? ', ' : ''}{review.hotelCountry}
+                                                </p>
+                                            )}
+                                        </div>
                                         {review.hidden && (
                                             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-500/20 text-red-500 border border-red-500/30">HIDDEN</span>
                                         )}
@@ -89,10 +131,11 @@ const AdminReviews = () => {
                                                 <Star key={i} size={14} className={i < review.rating ? "fill-yellow-400 text-yellow-400" : "text-slate-600"} />
                                             ))}
                                         </div>
-                                        <div className="flex items-center gap-1 text-xs text-slate-500">
-                                            <User size={12} /> {review.userName || review.userId || 'Guest'}
-                                            <span className="mx-1">•</span>
-                                            {new Date(review.createdAt).toLocaleDateString()}
+                                        <div className="flex items-center gap-1 text-xs text-slate-500 bg-slate-700/30 px-2 py-1 rounded-md">
+                                            <User size={12} className="text-blue-400" /> 
+                                            <span className="font-bold text-slate-300">{review.userName || review.userId || 'Guest'}</span>
+                                            <span className="mx-1 text-slate-600">•</span>
+                                            <span>{new Date(review.createdAt).toLocaleDateString()}</span>
                                         </div>
                                     </div>
                                 </div>

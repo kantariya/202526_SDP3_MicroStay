@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   UserCircle, Calendar, MapPin, Star, Settings, Bell, Shield,
-  Mail, Phone, Home, Edit2, Save, X, ChevronRight, Plus, LogOut
+  Mail, Phone, Home, Edit2, Save, X, ChevronRight, Plus, LogOut, Lock, Eye, EyeOff
 } from 'lucide-react';
 import api from "../../utils/api";
 import BookingCard from '../components/BookingCard';
@@ -21,6 +21,19 @@ const UserProfile = () => {
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [bookingToCancel, setBookingToCancel] = useState(null);
 
+  // Password Change State
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
+  
+  // Two-Factor Auth State
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+  const [twoFactorLoading, setTwoFactorLoading] = useState(false);
+
   useEffect(() => {
     fetchProfileData();
   }, []);
@@ -35,6 +48,8 @@ const UserProfile = () => {
 
       setUser(userRes.data);
       setEditForm(userRes.data);
+  // initialize two-factor state from profile if present
+  setTwoFactorEnabled(Boolean(userRes.data.twoFactorEnabled));
 
       // 2. Get Bookings
       const bookRes = await api.get('/bookings/my');
@@ -95,6 +110,60 @@ const UserProfile = () => {
     } catch (err) {
       console.error("Profile update failed", err);
       alert(err.response?.data?.message || "Failed to update profile");
+    }
+  };
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    setPasswordError('');
+    setPasswordSuccess('');
+
+    // Validation
+    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+      setPasswordError('All fields are required');
+      return;
+    }
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordError('New passwords do not match');
+      return;
+    }
+
+    if (passwordForm.newPassword.length < 6) {
+      setPasswordError('New password must be at least 6 characters');
+      return;
+    }
+
+    try {
+      const response = await api.post('/users/change-password', {
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword
+      });
+
+      if (response.data.status === 'PASSWORD_CHANGED') {
+        setPasswordSuccess('Password changed successfully!');
+        setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      }
+    } catch (err) {
+      console.error("Password change failed", err);
+      setPasswordError(err.response?.data?.message || "Failed to change password. Please check your current password.");
+    }
+  };
+
+  const toggleTwoFactor = async () => {
+    setTwoFactorLoading(true);
+    try {
+      const res = await api.patch('/users/two-factor/toggle');
+      const enabled = Boolean(res.data.twoFactorEnabled);
+      setTwoFactorEnabled(enabled);
+      // reflect on user object too
+      setUser(prev => ({ ...(prev || {}), twoFactorEnabled: enabled }));
+      alert(enabled ? 'Two-factor authentication enabled.' : 'Two-factor authentication disabled.');
+    } catch (err) {
+      console.error('Failed to toggle two-factor', err);
+      alert(err.response?.data?.message || 'Failed to toggle two-factor authentication.');
+    } finally {
+      setTwoFactorLoading(false);
     }
   };
 
@@ -172,14 +241,10 @@ const UserProfile = () => {
                 <h2 className="text-2xl font-black text-slate-900">{user.firstName} {user.lastName}</h2>
                 <p className="text-slate-500 font-medium mb-6">{user.email}</p>
 
-                <div className="grid grid-cols-2 gap-4 w-full mb-6">
+                <div className="grid grid-cols-1 gap-4 w-full mb-6">
                   <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100">
                     <p className="text-2xl font-black text-blue-600">{bookings.length}</p>
                     <p className="text-xs font-bold text-blue-400 uppercase">Bookings</p>
-                  </div>
-                  <div className="bg-purple-50 p-4 rounded-2xl border border-purple-100">
-                    <p className="text-2xl font-black text-purple-600">0</p>
-                    <p className="text-xs font-bold text-purple-400 uppercase">Reviews</p>
                   </div>
                 </div>
 
@@ -194,8 +259,8 @@ const UserProfile = () => {
               <nav className="space-y-1">
                 <NavButton tab="profile" icon={UserCircle} label="Profile Details" />
                 <NavButton tab="bookings" icon={Calendar} label="My Bookings" count={bookings.length} />
-                <NavButton tab="preferences" icon={Star} label="Preferences" />
-                <NavButton tab="notifications" icon={Bell} label="Notifications" />
+                {/* <NavButton tab="preferences" icon={Star} label="Preferences" />
+                <NavButton tab="notifications" icon={Bell} label="Notifications" /> */}
                 <NavButton tab="security" icon={Shield} label="Security" />
               </nav>
             </div>
@@ -376,11 +441,156 @@ const UserProfile = () => {
             )}
 
             {/* OTHER TABS (Placeholder) */}
-            {(activeTab === 'preferences' || activeTab === 'notifications' || activeTab === 'security') && (
+            {(activeTab === 'preferences' || activeTab === 'notifications') && (
               <div className="bg-white rounded-3xl p-10 text-center border border-gray-100">
                 <Settings size={48} className="mx-auto text-slate-200 mb-4" />
                 <h3 className="text-lg font-bold text-slate-900">Coming Soon</h3>
                 <p className="text-slate-500">This feature is under development.</p>
+              </div>
+            )}
+
+            {/* SECURITY TAB */}
+            {activeTab === 'security' && (
+              <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
+                <div className="mb-8">
+                  <h2 className="text-2xl font-black text-slate-900">Security Settings</h2>
+                  <p className="text-slate-500">Manage your password and account security</p>
+                </div>
+
+                {/* CHANGE PASSWORD FORM */}
+                <div className="max-w-md">
+                  <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                    <Lock size={20} className="text-blue-600" />
+                    Change Password
+                  </h3>
+
+                  <form onSubmit={handleChangePassword} className="space-y-4">
+                    {/* Current Password */}
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-slate-400 uppercase">Current Password</label>
+                      <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-200 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 transition">
+                        <Lock size={20} className="text-slate-400" />
+                        <input
+                          type="password"
+                          value={passwordForm.currentPassword}
+                          onChange={e => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                          className="bg-transparent w-full font-medium text-slate-700 outline-none"
+                          placeholder="Enter current password"
+                        />
+                      </div>
+                    </div>
+
+                    {/* New Password */}
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-slate-400 uppercase">New Password</label>
+                      <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-200 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 transition">
+                        <Lock size={20} className="text-slate-400" />
+                        <input
+                          type="password"
+                          value={passwordForm.newPassword}
+                          onChange={e => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                          className="bg-transparent w-full font-medium text-slate-700 outline-none"
+                          placeholder="Enter new password"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Confirm New Password */}
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-slate-400 uppercase">Confirm New Password</label>
+                      <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-200 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 transition">
+                        <Lock size={20} className="text-slate-400" />
+                        <input
+                          type="password"
+                          value={passwordForm.confirmPassword}
+                          onChange={e => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                          className="bg-transparent w-full font-medium text-slate-700 outline-none"
+                          placeholder="Confirm new password"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Error Message */}
+                    {passwordError && (
+                      <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm font-medium">
+                        {passwordError}
+                      </div>
+                    )}
+
+                    {/* Success Message */}
+                    {passwordSuccess && (
+                      <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl text-sm font-medium">
+                        {passwordSuccess}
+                      </div>
+                    )}
+
+                    {/* Submit Button */}
+                    <button
+                      type="submit"
+                      className="w-full flex items-center justify-center gap-2 text-white font-bold bg-blue-600 py-3 rounded-xl hover:bg-blue-700 transition shadow-lg shadow-blue-500/20"
+                    >
+                      <Shield size={18} />
+                      Update Password
+                    </button>
+                  </form>
+
+                  {/* Security Tips */}
+                  <div className="mt-8 p-4 bg-blue-50 rounded-xl border border-blue-100">
+                    <h4 className="text-sm font-bold text-blue-900 mb-2">Password Security Tips</h4>
+                    <ul className="text-xs text-blue-700 space-y-1">
+                      <li>• Use at least 8 characters with mixed case letters</li>
+                      <li>• Include numbers and special characters</li>
+                      <li>• Avoid common words or personal information</li>
+                      <li>• Don't reuse passwords from other accounts</li>
+                    </ul>
+                  </div>
+                </div>
+
+                {/* TWO-FACTOR AUTHENTICATION SECTION */}
+                <div className="mt-12 pt-12 border-t border-gray-100 max-w-md">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <Shield size={20} className="text-blue-600" />
+                      <h3 className="text-lg font-bold text-slate-900">Two-Factor Authentication</h3>
+                    </div>
+                    {/* TOGGLE SWITCH */}
+                    <button
+                      onClick={toggleTwoFactor}
+                      disabled={twoFactorLoading}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                        twoFactorEnabled ? 'bg-blue-600' : 'bg-gray-200'
+                      } ${twoFactorLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          twoFactorEnabled ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                  
+                  <div className="p-4 rounded-2xl bg-gray-50 border border-gray-100">
+                    <div className="flex gap-3">
+                      <div className={`p-2 rounded-lg ${twoFactorEnabled ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-400'}`}>
+                        <Shield size={20} />
+                      </div>
+                      <div>
+                        <p className="font-bold text-slate-900 text-sm">
+                          {twoFactorEnabled ? 'TFA is Currently Enabled' : 'TFA is Currently Disabled'}
+                        </p>
+                        <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                          Two-factor authentication adds an extra layer of security to your account by requiring an OTP from your email for sign-ins.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {twoFactorLoading && (
+                    <p className="text-xs text-blue-600 font-medium mt-3 animate-pulse">
+                      Updating security settings...
+                    </p>
+                  )}
+                </div>
               </div>
             )}
 

@@ -34,8 +34,8 @@ public class BookingController {
     }
 
     @PostMapping("/{ref}/cancel")
-    public ResponseEntity<Void> cancelBooking(@PathVariable String ref) {
-        bookingService.cancelBooking(ref);
+    public ResponseEntity<Void> cancelBooking(@PathVariable String ref,@RequestHeader("X-User-Id") String userId,@RequestHeader("X-User-Role") String userRole) {
+        bookingService.cancelBooking(ref,userId,userRole);
         return ResponseEntity.ok().build();
     }
 

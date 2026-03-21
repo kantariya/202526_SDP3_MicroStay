@@ -35,6 +35,7 @@ public class AdminDataLoader implements CommandLineRunner {
             admin.setPassword(
                     passwordEncoder.encode(adminPassword));
             admin.setRole(Role.ADMIN);
+            admin.setEmailVerified(true);
 
             userRepository.save(admin);
 

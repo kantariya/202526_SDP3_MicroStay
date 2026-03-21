@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'r
 import { useEffect, useState } from 'react'
 import Login from './user/pages/Login'
 import Register from './user/pages/Register'
+import ForgotPassword from './user/pages/ForgotPassword'
 import UserProfile from './user/pages/UserProfile';
 import WrapperLayout from './user/layout/wrapperLayout';
 import DashBoard from './user/pages/DashBoard';
@@ -57,6 +58,7 @@ function App() {
           <Route element={<PublicRoute />}>
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/oauth-success" element={<OAuthSuccess />} />
             <Route path="/verify-email" element={<VerifyEmail />} />
             <Route path="/unauthorized" element={<Unauthorized />} />

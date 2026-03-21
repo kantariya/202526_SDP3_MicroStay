@@ -9,8 +9,25 @@ const Revenue = () => {
     useEffect(() => {
         const fetchRevenue = async () => {
             try {
-                // GET /manager/revenue
-                const res = await api.get('/manager/revenue');
+                // First fetch manager hotels to get hotelIds (same as Manager Dashboard)
+                const hotelsRes = await api.get('/manager/hotels');
+                const hotels = hotelsRes.data || [];
+                const hotelIds = hotels.map(h => h.id);
+
+                // If no hotels, return zeroed revenue
+                if (hotelIds.length === 0) {
+                    setRevenueData({ revenue: 0 });
+                    return;
+                }
+
+                // build params with repeated hotelIds entries like Dashboard
+                const params = new URLSearchParams(
+                    hotelIds.map(id => ['hotelIds', id])
+                );
+
+                // GET /manager/revenue with params
+                const res = await api.get('/manager/revenue', { params });
+            
                 setRevenueData(res.data);
             } catch (error) {
                 console.error("Error fetching revenue:", error);
@@ -31,7 +48,7 @@ const Revenue = () => {
                 <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-lg">
                     <h3 className="text-slate-400 text-sm font-medium mb-2">Total Revenue</h3>
                     <p className="text-3xl font-bold text-emerald-400 flex items-center gap-1">
-                        <DollarSign size={24} /> {loading ? '...' : revenueData?.totalRevenue || 0}
+                        <DollarSign size={24} /> {loading ? '...' : revenueData?.revenue || 0}
                     </p>
                 </div>
             </div>

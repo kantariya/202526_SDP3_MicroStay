@@ -1,9 +1,9 @@
 import React from 'react';
-import { Star, ThumbsUp, Trash2 } from 'lucide-react';
+import { ThumbsUp, Trash2, Edit2 } from 'lucide-react';
 import RatingBadge from './RatingBadge';
 
-const ReviewCard = ({ review, onDelete, currentUserId }) => {
-    const isOwner = currentUserId && review.userId === currentUserId;
+const ReviewCard = ({ review, onDelete, onEdit, currentUserId }) => {
+    const isOwner = currentUserId && review.userId == currentUserId;
 
     return (
         <div className="bg-white p-6 rounded-2xl border border-gray-100 hover:shadow-md transition group">
@@ -29,13 +29,26 @@ const ReviewCard = ({ review, onDelete, currentUserId }) => {
                     <ThumbsUp size={14} /> Helpful
                 </button>
 
-                {isOwner && onDelete && (
-                    <button
-                        onClick={() => onDelete(review.id)}
-                        className="flex items-center gap-1.5 text-xs font-semibold text-red-400 hover:text-red-600 transition opacity-0 group-hover:opacity-100"
-                    >
-                        <Trash2 size={14} /> Delete
-                    </button>
+                {isOwner && (
+                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition">
+                        {onEdit && (
+                            <button
+                                onClick={() => onEdit(review)}
+                                className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-blue-600 transition"
+                            >
+                                <Edit2 size={14} /> Edit
+                            </button>
+                        )}
+
+                        {onDelete && (
+                            <button
+                                onClick={() => onDelete(review.id || review.reviewId || review._id)}
+                                className="flex items-center gap-1.5 text-xs font-semibold text-red-400 hover:text-red-600 transition"
+                            >
+                                <Trash2 size={14} /> Delete
+                            </button>
+                        )}
+                    </div>
                 )}
             </div>
         </div>

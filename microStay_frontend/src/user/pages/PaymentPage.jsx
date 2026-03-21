@@ -102,7 +102,7 @@ const PaymentPage = () => {
                         </div>
                     )}
 
-                    <h3 className="text-lg font-bold text-slate-900 mb-4">Payment Simulation (Test Mode)</h3>
+                    <h3 className="text-lg font-bold text-slate-900 mb-4">Payment Simulation {/*(Test Mode)*/}</h3>
                     <div className="space-y-3 mb-8">
                         <div
                             onClick={() => setMockResult('SUCCESS')}
@@ -112,10 +112,10 @@ const PaymentPage = () => {
                                 {mockResult === 'SUCCESS' && <div className="w-2.5 h-2.5 bg-green-600 rounded-full" />}
                             </div>
                             <CheckCircle size={24} className="text-green-600" />
-                            <span className="font-bold text-slate-700">✓ Simulate Successful Payment</span>
+                            <span className="font-bold text-slate-700">✓ Pay Securely</span>
                         </div>
 
-                        <div
+                        {/* <div
                             onClick={() => setMockResult('FAILED')}
                             className={`p-4 rounded-xl border-2 flex items-center gap-4 cursor-pointer transition ${mockResult === 'FAILED' ? 'border-red-600 bg-red-50/50' : 'border-gray-100 hover:border-red-200'}`}
                         >
@@ -124,7 +124,7 @@ const PaymentPage = () => {
                             </div>
                             <CreditCard size={24} className="text-red-600" />
                             <span className="font-bold text-slate-700">✗ Simulate Failed Payment</span>
-                        </div>
+                        </div> */}
                     </div>
 
                     <button

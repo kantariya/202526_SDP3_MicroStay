@@ -1,10 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Calendar, ChevronRight, CheckCircle, XCircle } from 'lucide-react';
 import api from '../utils/api';
+import ConfirmDialog from '../../user/components/ConfirmDialog';
 
 const AdminBookings = () => {
     const [bookings, setBookings] = useState([]);
     const [loading, setLoading] = useState(true);
+
+    // Confirm Dialog State
+    const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+    const [bookingToCancel, setBookingToCancel] = useState(null);
 
     useEffect(() => {
         fetchBookings();
@@ -25,21 +30,36 @@ const AdminBookings = () => {
         }
     };
 
-    const handleAction = async (id, action) => {
-        if (!window.confirm(`Are you sure you want to ${action} this booking?`)) return;
+    // Check if booking can be cancelled (must be confirmed and check-in date is in the future)
+    const canCancelBooking = (booking) => {
+        if (booking.status !== 'CONFIRMED') return false;
+        const today = new Date();
+        const checkInDate = new Date(booking.checkInDate);
+        return checkInDate > today;
+    };
 
+    const initiateCancel = (booking) => {
+        if (!canCancelBooking(booking)) {
+            alert("This booking cannot be cancelled. Either it's not confirmed or the cancellation period has passed.");
+            return;
+        }
+        setBookingToCancel(booking);
+        setIsConfirmOpen(true);
+    };
+
+    const handleConfirmCancel = async () => {
+        if (!bookingToCancel) return;
+        
         try {
-            if (action === 'confirm') {
-                await api.post(`/bookings/${id}/confirm`);
-            } else if (action === 'cancel') {
-                await api.post(`/bookings/${id}/cancel`);
-            }
-
-            alert(`Booking ${action}ed successfully.`);
+            await api.post(`/bookings/${bookingToCancel.bookingReference}/cancel`);
+            alert(`Booking ${bookingToCancel.bookingReference} cancelled successfully.`);
             fetchBookings(); // Refresh list
         } catch (error) {
-            console.error(`Error ${action}ing booking:`, error);
-            alert(`Failed to ${action} booking.`);
+            console.error("Error cancelling booking:", error);
+            alert(error.response?.data?.message || "Failed to cancel booking.");
+        } finally {
+            setIsConfirmOpen(false);
+            setBookingToCancel(null);
         }
     };
 
@@ -101,22 +121,27 @@ const AdminBookings = () => {
                                         </td>
                                         <td className="p-4 text-right">
                                             <div className="flex items-center justify-end gap-2">
-                                                {booking.status === 'PENDING' && (
-                                                    <button
-                                                        onClick={() => handleAction(booking.bookingId, 'confirm')}
-                                                        className="bg-blue-600/20 text-blue-400 px-3 py-1 rounded text-xs hover:bg-blue-600/30"
-                                                    >
-                                                        Confirm
-                                                    </button>
+                                                {booking.status === 'CONFIRMED' && (
+                                                    <>
+                                                        {canCancelBooking(booking) ? (
+                                                            <button
+                                                                onClick={() => initiateCancel(booking)}
+                                                                className="text-red-400 p-2 hover:bg-red-500/10 rounded transition"
+                                                                title="Cancel Booking"
+                                                            >
+                                                                <XCircle size={16} />
+                                                            </button>
+                                                        ) : (
+                                                            <span className="text-xs text-slate-500 italic" title="Cancellation period has passed">
+                                                                Cannot cancel
+                                                            </span>
+                                                        )}
+                                                    </>
                                                 )}
-                                                {booking.status !== 'CANCELLED' && booking.status !== 'COMPLETED' && (
-                                                    <button
-                                                        onClick={() => handleAction(booking.bookingId, 'cancel')}
-                                                        className="text-red-400 p-2 hover:bg-red-500/10 rounded"
-                                                        title="Cancel Booking"
-                                                    >
-                                                        <XCircle size={16} />
-                                                    </button>
+                                                {booking.status === 'CANCELLED' && (
+                                                    <span className="text-xs text-slate-500 italic">
+                                                        Cancelled
+                                                    </span>
                                                 )}
                                             </div>
                                         </td>
@@ -127,6 +152,14 @@ const AdminBookings = () => {
                     </table>
                 </div>
             </div>
+
+            <ConfirmDialog
+                isOpen={isConfirmOpen}
+                onClose={() => setIsConfirmOpen(false)}
+                onConfirm={handleConfirmCancel}
+                title="Cancel Booking"
+                message={`Are you sure you want to cancel booking ${bookingToCancel?.bookingReference}? This action cannot be undone and the guest will be notified.`}
+            />
         </div>
     );
 };

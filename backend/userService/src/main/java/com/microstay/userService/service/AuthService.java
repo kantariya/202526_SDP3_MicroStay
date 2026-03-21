@@ -1,7 +1,11 @@
 package com.microstay.userService.service;
 
+import com.microstay.userService.dto.ChangePasswordRequest;
+import com.microstay.userService.dto.ForgotPasswordOtpRequest;
+import com.microstay.userService.dto.ForgotPasswordOtpVerifyRequest;
 import com.microstay.userService.dto.LoginRequest;
 import com.microstay.userService.dto.RegisterRequest;
+import com.microstay.userService.dto.ResetPasswordRequest;
 import com.microstay.userService.entity.User;
 import com.microstay.userService.repository.UserRepository;
 import com.microstay.userService.util.JwtUtils;
@@ -18,6 +22,8 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class AuthService {
 
+    private static final String FORGOT_PASSWORD_OTP_PURPOSE = "forgot-password";
+
     private final UserRepository repo;
     private final PasswordEncoder encoder;
     private final JwtUtils jwt;
@@ -27,6 +33,7 @@ public class AuthService {
     private final EmailService emailService;
     private final RedisRateLimitService rateLimit;
     private final EmailTemplateService templates;
+    private final RedisPasswordResetTokenService passwordResetTokenService;
 
     @Value("${app.frontend-url}")
     private String frontendUrl;
@@ -37,7 +44,7 @@ public class AuthService {
     // ---------- REGISTER ----------
     public Map<String, Object> register(RegisterRequest r) {
 
-        String emailAddr = r.getEmail().toLowerCase().trim();
+        String emailAddr = normalizeEmail(r.getEmail());
 
         User user = repo.findByEmail(emailAddr).orElse(null);
 
@@ -88,7 +95,7 @@ public class AuthService {
     // ---------- LOGIN ----------
     public Map<String, Object> login(LoginRequest r) {
 
-        User u = repo.findByEmail(r.getEmail().toLowerCase())
+        User u = repo.findByEmail(normalizeEmail(r.getEmail()))
                 .orElseThrow(() -> new RuntimeException("Invalid credentials"));
 
         // ADMIN accounts skip email verification requirement
@@ -119,10 +126,91 @@ public class AuthService {
         return issueJwt(repo.findById(id).orElseThrow());
     }
 
+    // ---------- CHANGE PASSWORD ----------
+    public Map<String, Object> changePassword(Long userId, ChangePasswordRequest request) {
+        User user = repo.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (user.getPassword() == null) {
+            throw new RuntimeException("Password login is not enabled for this account");
+        }
+
+        if (!encoder.matches(request.getCurrentPassword(), user.getPassword())) {
+            throw new RuntimeException("Current password is incorrect");
+        }
+
+        if (encoder.matches(request.getNewPassword(), user.getPassword())) {
+            throw new RuntimeException("New password must be different from current password");
+        }
+
+        user.setPassword(encoder.encode(request.getNewPassword()));
+        repo.save(user);
+
+        sendPasswordChangedEmail(user);
+
+        return Map.of("status", "PASSWORD_CHANGED");
+    }
+
+    // ---------- FORGOT PASSWORD: REQUEST OTP ----------
+    public Map<String, Object> requestForgotPasswordOtp(ForgotPasswordOtpRequest request) {
+        String email = normalizeEmail(request.getEmail());
+
+        User user = repo.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (!rateLimit.allow("forgot:otp:" + email, 60)) {
+            return Map.of("status", "WAIT", "seconds", 60);
+        }
+
+        String otp = otpService.generate(FORGOT_PASSWORD_OTP_PURPOSE, email);
+        String html = templates.forgotPasswordOtpTemplate(user.getFirstName(), otp);
+        emailService.sendHtml(user.getEmail(), "Forgot Password OTP", html);
+
+        return Map.of("status", "SENT");
+    }
+
+    // ---------- FORGOT PASSWORD: VERIFY OTP ----------
+    public Map<String, Object> verifyForgotPasswordOtp(ForgotPasswordOtpVerifyRequest request) {
+        String email = normalizeEmail(request.getEmail());
+
+        repo.findByEmail(email).orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (!otpService.verify(FORGOT_PASSWORD_OTP_PURPOSE, email, request.getOtp())) {
+            throw new RuntimeException("Bad OTP");
+        }
+
+        String resetToken = passwordResetTokenService.create(email);
+
+        return Map.of(
+                "status", "OTP_VERIFIED",
+                "resetToken", resetToken);
+    }
+
+    // ---------- FORGOT PASSWORD: RESET ----------
+    public Map<String, Object> resetPasswordAfterOtp(ResetPasswordRequest request) {
+        String email = passwordResetTokenService.consume(request.getResetToken());
+        if (email == null) {
+            throw new RuntimeException("Reset token expired or invalid");
+        }
+
+        User user = repo.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (user.getPassword() != null && encoder.matches(request.getNewPassword(), user.getPassword())) {
+            throw new RuntimeException("New password must be different from current password");
+        }
+
+        user.setPassword(encoder.encode(request.getNewPassword()));
+        repo.save(user);
+
+        sendPasswordChangedEmail(user);
+
+        return Map.of("status", "PASSWORD_RESET");
+    }
+
     // ---------- RESEND VERIFY ----------
     public Map<String, Object> resendVerification(String email) {
 
-        User u = repo.findByEmail(email.toLowerCase())
+        User u = repo.findByEmail(normalizeEmail(email))
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         if (u.isEmailVerified())
@@ -161,5 +249,14 @@ public class AuthService {
                 "status", "SUCCESS",
                 "token", jwt.generateToken(u),
                 "role", u.getRole().name());
+    }
+
+    private String normalizeEmail(String email) {
+        return email.toLowerCase().trim();
+    }
+
+    private void sendPasswordChangedEmail(User user) {
+        String html = templates.passwordChangedTemplate(user.getFirstName());
+        emailService.sendHtml(user.getEmail(), "Password Changed", html);
     }
 }

@@ -1,11 +1,15 @@
 package com.microstay.userService.controller;
 
+import com.microstay.userService.dto.ChangePasswordRequest;
+import com.microstay.userService.dto.TwoFactorToggleResponse;
 import com.microstay.userService.dto.UserResponse;
 import com.microstay.userService.dto.UserUpdateRequest;
 import com.microstay.userService.entity.Role;
 import com.microstay.userService.entity.User;
 import com.microstay.userService.repository.UserRepository;
+import com.microstay.userService.service.AuthService;
 import com.microstay.userService.service.UserService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,7 +19,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/users")
@@ -24,6 +27,7 @@ public class UserController {
 
     private final UserRepository userRepository;
     private final UserService userService;
+    private final AuthService authService;
 
     @GetMapping("/profile")
     public ResponseEntity<UserResponse> getMyProfile() {
@@ -88,6 +92,17 @@ public class UserController {
         return ResponseEntity.ok(userService.updateUserProfile(userId, request));
     }
 
+    @PostMapping("/change-password")
+    public ResponseEntity<?> changePassword(
+            @RequestHeader("X-User-Id") String userId,
+            @Valid @RequestBody ChangePasswordRequest request) {
+        return ResponseEntity.ok(authService.changePassword(Long.parseLong(userId), request));
+    }
 
+    @PatchMapping("/two-factor/toggle")
+    public ResponseEntity<TwoFactorToggleResponse> toggleTwoFactor(
+            @RequestHeader("X-User-Id") Long userId) {
+        return ResponseEntity.ok(userService.toggleTwoFactor(userId));
+    }
 
 }

@@ -61,7 +61,7 @@ const FavoritesPage = () => {
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search your list..."
-              className="w-full bg-white border border-gray-200 rounded-xl py-3 pl-12 pr-4 text-sm font-bold shadow-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
+              className="text-[#1A1A1A] w-full bg-white border border-gray-200 rounded-xl py-3 pl-12 pr-4 text-sm font-bold shadow-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
             />
           </div>
         </div>

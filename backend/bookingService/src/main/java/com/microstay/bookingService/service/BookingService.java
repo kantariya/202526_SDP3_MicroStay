@@ -147,9 +147,13 @@ public class BookingService {
         }
 
         @Transactional
-        public void cancelBooking(String bookingReference) {
+        public void cancelBooking(String bookingReference,String userId,String userRole) {
 
                 Booking booking = getBooking(bookingReference);
+
+                if(!booking.getUserId().equals(userId) && !"ADMIN".equalsIgnoreCase(userRole)) {
+                        throw new ResponseStatusException(BAD_REQUEST, "You can only cancel your own bookings");
+                }
 
                 // ✅ prevent double cancel
                 if (booking.getStatus().equals(BookingStatus.CANCELLED)) {

@@ -10,11 +10,21 @@ const ManagerBookings = () => {
         fetchBookings();
     }, []);
 
+
     const fetchBookings = async () => {
         setLoading(true);
         try {
-            const response = await api.get('/manager/bookings');
+            const hotelsRes = await api.get('/manager/hotels');
+
+            const hotels = hotelsRes.data || [];
+            const hotelIds = hotels.map(h => h.id);
+
+            const params = new URLSearchParams(
+                hotelIds.map(id => ['hotelIds', id])
+            );
+            const response = await api.get('/manager/bookings', { params });
             setBookings(response.data);
+            console.log("Fetched bookings:", response.data);
         } catch (error) {
             console.error("Error fetching bookings:", error);
             if (error.response && error.response.status === 404) {
@@ -77,11 +87,11 @@ const ManagerBookings = () => {
                             ) : (
                                 bookings.map(booking => (
                                     <tr key={booking.id} className="hover:bg-slate-700/30 transition-colors">
-                                        <td className="p-4 text-slate-400 font-mono text-xs">{booking.id}</td>
+                                        <td className="p-4 text-slate-400 font-mono text-xs">{booking.bookingId}</td>
                                         <td className="p-4 text-slate-200 font-medium text-xs">{booking.userId}</td>
                                         <td className="p-4 text-sm text-slate-300">
-                                            <p>{booking.roomId}</p>
-                                            <p className="text-xs text-slate-500">{booking.hotelId}</p>
+                                            <p>{booking.hotelName}</p>
+                                            <p className="text-xs text-slate-500">{booking.rooms[0]?.roomId || 'N/A'}</p>
                                         </td>
                                         <td className="p-4 text-sm text-slate-300">
                                             <div className="flex flex-col">
@@ -90,34 +100,42 @@ const ManagerBookings = () => {
                                             </div>
                                         </td>
                                         <td className="p-4">
-                                            <span className={`px-2 py-1 rounded text-xs font-bold ${
-                                                booking.status === 'CONFIRMED' ? 'bg-blue-500/20 text-blue-400' :
-                                                booking.status === 'CHECKED_IN' ? 'bg-purple-500/20 text-purple-400' :
-                                                booking.status === 'CANCELLED' ? 'bg-red-500/20 text-red-400' :
-                                                'bg-green-500/20 text-green-400'
-                                            }`}>
+                                            <span className={`px-2 py-1 rounded text-xs font-bold ${booking.status === 'CONFIRMED' ? 'bg-blue-500/20 text-blue-400' :
+                                                    booking.status === 'CHECKED_IN' ? 'bg-purple-500/20 text-purple-400' :
+                                                        booking.status === 'CANCELLED' ? 'bg-red-500/20 text-red-400' :
+                                                            'bg-green-500/20 text-green-400'
+                                                }`}>
                                                 {booking.status}
                                             </span>
                                         </td>
                                         <td className="p-4 text-right">
                                             <div className="flex items-center justify-end gap-2">
-                                                {booking.status === 'PENDING' && (
-                                                    <div className="text-yellow-500 text-xs italic pr-2">Pending Conf.</div>
-                                                )}
-                                                {booking.status === 'CONFIRMED' && (
-                                                    <button onClick={() => handleAction(booking.id, 'checkin')} className="bg-emerald-600/20 text-emerald-400 px-3 py-1 rounded text-xs hover:bg-emerald-600/30">
-                                                        Check In
-                                                    </button>
-                                                )}
-                                                {booking.status === 'CHECKED_IN' && (
-                                                    <button onClick={() => handleAction(booking.id, 'checkout')} className="bg-purple-600/20 text-purple-400 px-3 py-1 rounded text-xs hover:bg-purple-600/30">
-                                                        Check Out
-                                                    </button>
-                                                )}
-                                                {booking.status !== 'CANCELLED' && booking.status !== 'COMPLETED' && (
-                                                    <button onClick={() => handleAction(booking.id, 'cancel')} className="text-red-400 p-2 hover:bg-red-500/10 rounded" title="Cancel Booking">
-                                                        <XCircle size={16} />
-                                                    </button>
+                                                {booking.status === 'CONFIRMED' && (() => {
+                                                    const today = new Date();
+                                                    const checkInDate = new Date(booking.checkInDate);
+                                                    const canCancel = checkInDate > today;
+                                                    return (
+                                                        <>
+                                                            {canCancel ? (
+                                                                <button
+                                                                    onClick={() => handleAction(booking.id, 'cancel')}
+                                                                    className="text-red-400 p-2 hover:bg-red-500/10 rounded transition"
+                                                                    title="Cancel Booking"
+                                                                >
+                                                                    <XCircle size={16} />
+                                                                </button>
+                                                            ) : (
+                                                                <span className="text-xs text-slate-500 italic" title="Cancellation period has passed">
+                                                                    Cannot cancel
+                                                                </span>
+                                                            )}
+                                                        </>
+                                                    );
+                                                })()}
+                                                {booking.status === 'CANCELLED' && (
+                                                    <span className="text-xs text-slate-500 italic">
+                                                        Cancelled
+                                                    </span>
                                                 )}
                                             </div>
                                         </td>

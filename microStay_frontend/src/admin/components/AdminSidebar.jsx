@@ -11,8 +11,8 @@ const AdminSidebar = () => {
         { name: 'Bookings', path: '/admin/bookings', icon: <CalendarCheck size={20} /> },
         { name: 'Users', path: '/admin/users', icon: <Users size={20} /> },
         { name: 'Reviews', path: '/admin/reviews', icon: <MessageSquare size={20} /> },
-        { name: 'Payments', path: '/admin/payments', icon: <CreditCard size={20} /> },
-        { name: 'Settings', path: '/admin/settings', icon: <Settings size={20} /> },
+        { name: 'Payments', path: '/admin/payments', icon: <CreditCard size={20} /> }
+        // { name: 'Settings', path: '/admin/settings', icon: <Settings size={20} /> },
     ];
 
     return (

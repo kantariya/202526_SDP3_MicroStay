@@ -1,7 +1,11 @@
 package com.microstay.userService.controller;
 
+import com.microstay.userService.dto.ChangePasswordRequest;
+import com.microstay.userService.dto.ForgotPasswordOtpRequest;
+import com.microstay.userService.dto.ForgotPasswordOtpVerifyRequest;
 import com.microstay.userService.dto.LoginRequest;
 import com.microstay.userService.dto.RegisterRequest;
+import com.microstay.userService.dto.ResetPasswordRequest;
 import com.microstay.userService.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -46,5 +50,23 @@ public class AuthController {
     @PostMapping("/resend-otp")
     public ResponseEntity<?> resendOtp(@RequestParam Long userId) {
         return ResponseEntity.ok(authService.resendOtp(userId));
+    }
+
+    @PostMapping("/forgot-password/request-otp")
+    public ResponseEntity<?> requestForgotPasswordOtp(
+            @Valid @RequestBody ForgotPasswordOtpRequest request) {
+        return ResponseEntity.ok(authService.requestForgotPasswordOtp(request));
+    }
+
+    @PostMapping("/forgot-password/verify-otp")
+    public ResponseEntity<?> verifyForgotPasswordOtp(
+            @Valid @RequestBody ForgotPasswordOtpVerifyRequest request) {
+        return ResponseEntity.ok(authService.verifyForgotPasswordOtp(request));
+    }
+
+    @PostMapping("/forgot-password/reset")
+    public ResponseEntity<?> resetPasswordAfterOtp(
+            @Valid @RequestBody ResetPasswordRequest request) {
+        return ResponseEntity.ok(authService.resetPasswordAfterOtp(request));
     }
 }
