@@ -7,6 +7,7 @@ import com.microstay.userService.dto.UserGrowthDTO;
 import com.microstay.userService.entity.Role;
 import com.microstay.userService.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -17,20 +18,22 @@ import java.util.function.Supplier;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AdminStatsService {
 
     private final UserRepository userRepository;
     private final HotelClient hotelClient;
     private final BookingClient bookingClient;
 
+
     public AdminStatsResponse getAdminStats() {
 
         long totalUsers = userRepository.countByRole(Role.USER);
         long totalManagers = userRepository.countByRole(Role.HOTEL_MANAGER);
 
-        Long hotels = safeCall(() -> hotelClient.countHotels());
-        Long pendingHotels = safeCall(() -> hotelClient.countHotelsByStatus("PENDING"));
-        Long bookings = safeCall(() -> bookingClient.countBookings());
+        Long hotels = safeCall(() -> countHotelsWithResilience());
+        Long pendingHotels = safeCall(() -> countHotelsByStatusWithResilience("PENDING"));
+        Long bookings = safeCall(() -> countBookingsWithResilience());
 
         List<Map<String, Object>> growthData = userRepository.findUserGrowthData();
         List<UserGrowthDTO> userGrowth = growthData.stream()
@@ -49,11 +52,24 @@ public class AdminStatsService {
                 userGrowth);
     }
 
+    public Long countHotelsWithResilience() {
+        return hotelClient.countHotels();
+    }
+
+    public Long countHotelsByStatusWithResilience(String status) {
+        return hotelClient.countHotelsByStatus(status);
+    }
+
+    public Long countBookingsWithResilience() {
+        return bookingClient.countBookings();
+    }
+
+
     private Long safeCall(Supplier<Long> supplier) {
         try {
             return supplier.get();
         } catch (Exception e) {
-            System.out.println("Error calling external service: " + e.getMessage());
+            log.error("Error calling external service: {}", e.getMessage());
             return 0L;
         }
     }

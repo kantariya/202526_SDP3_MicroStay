@@ -10,6 +10,10 @@ spring:
   main:
     web-application-type: reactive
 
+  data:
+    redis:
+      host: localhost
+      port: 6379
 
   cloud:
     gateway:
@@ -41,66 +45,104 @@ spring:
 
       # ✅ FIXED ROUTES
       routes:
+
+        # 🔐 AUTH (STRICT)
         - id: user-auth
           uri: lb://USERSERVICE
           predicates:
             - Path=/api/auth/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                key-resolver: "#{@userKeyResolver}"
+                redis-rate-limiter.replenishRate: 2
+                redis-rate-limiter.burstCapacity: 5
 
-
+        # 👤 USER APIs
         - id: user-api
           uri: lb://USERSERVICE
           predicates:
             - Path=/api/users/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                key-resolver: "#{@userKeyResolver}"
+                redis-rate-limiter.replenishRate: 10
+                redis-rate-limiter.burstCapacity: 20
 
-
+        # 🏨 HOTEL PUBLIC
         - id: hotel-service
           uri: lb://HOTELSERVICE
           predicates:
             - Path=/api/hotels/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                key-resolver: "#{@userKeyResolver}"
+                redis-rate-limiter.replenishRate: 20
+                redis-rate-limiter.burstCapacity: 40
 
-
+        # 🛠 ADMIN HOTEL (NO RATE LIMIT)
         - id: hotel-admin
           uri: lb://HOTELSERVICE
           predicates:
-            - Path=/api/admin/hotels/**, /api/admin/hotels, /api/admin/reviews/**, /api/admin/reviews
+            - Path=/api/admin/hotels, /api/admin/hotels/**, /api/admin/reviews, /api/admin/reviews/**
 
+        # 🧑‍💼 MANAGER HOTEL (NO RATE LIMIT)
         - id: hotel-manager
           uri: lb://HOTELSERVICE
           predicates:
-            - Path=/api/manager/hotels/**, /api/manager/hotels, /api/manager/reviews/**, /api/manager/reviews
+            - Path=/api/manager/hotels, /api/manager/hotels/**, /api/manager/reviews, /api/manager/reviews/**
 
+        # 📦 BOOKINGS (USER)
         - id: booking
           uri: lb://BOOKINGSERVICE
           predicates:
-            - Path=/api/bookings/**, /api/bookings
+            - Path=/api/bookings, /api/bookings/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                key-resolver: "#{@userKeyResolver}"
+                redis-rate-limiter.replenishRate: 10
+                redis-rate-limiter.burstCapacity: 20
 
+        # 🛠 ADMIN BOOKINGS (NO RATE LIMIT)
         - id: booking-admin
           uri: lb://BOOKINGSERVICE
           predicates:
-            - Path=/api/admin/bookings/**, /api/admin/bookings
+            - Path=/api/admin/bookings, /api/admin/bookings/**
 
+        # 🧑‍💼 MANAGER BOOKINGS (NO RATE LIMIT)
         - id: booking-manager
           uri: lb://BOOKINGSERVICE
           predicates:
-            - Path=/api/manager/bookings/**, /api/manager/bookings , /api/manager/revenue/**, /api/manager/revenue
+            - Path=/api/manager/bookings, /api/manager/bookings/**, /api/manager/revenue, /api/manager/revenue/**
 
+        # 💳 PAYMENT (STRICT - USER)
+        - id: payment
+          uri: lb://PAYMENTSERVICE
+          predicates:
+            - Path=/api/payments, /api/payments/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                key-resolver: "#{@userKeyResolver}"
+                redis-rate-limiter.replenishRate: 2
+                redis-rate-limiter.burstCapacity: 4
+
+        # 🛠 ADMIN PAYMENT (NO RATE LIMIT)
         - id: payment-admin
           uri: lb://PAYMENTSERVICE
           predicates:
-            - Path=/api/payments/**, /api/payments
+            - Path=/api/admin/payments, /api/admin/payments/**
 
-        - id: payment-admin
-          uri: lb://PAYMENTSERVICE
-          predicates:
-            - Path=/api/admin/payments/**, /api/admin/payments
-
-
+        # 🧑‍💼 ADMIN USER (NO RATE LIMIT)
         - id: user-admin
           uri: lb://USERSERVICE
           predicates:
             - Path=/api/admin/**
 
-
+        # 💬 CHAT (USER)
         - id: chat-service
           uri: lb://HOTELSERVICE
           predicates:
@@ -115,6 +157,16 @@ eureka:
       defaultZone: http://localhost:8761/eureka/
   instance:
     prefer-ip-address: true
+
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics
+  endpoint:
+    health:
+      show-details: always
 
 
 application:

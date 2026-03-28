@@ -18,4 +18,6 @@ public interface ReviewRepository extends MongoRepository<HotelReview, String> {
 
     List<HotelReview> findByHotelIdInAndHiddenFalse(List<String> hotelIds);
 
+    boolean existsByUserIdAndHotelId(String userId, String hotelId);
+
 }

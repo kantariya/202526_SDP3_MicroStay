@@ -105,11 +105,11 @@ public class PaymentService {
             System.out.println("Payment " + status + " for booking " + bookingId + ", notifying booking service");
 
             if (status == PaymentStatus.SUCCESS) {
-                bookingServiceClient.markPaymentSuccess(bookingId);
+                markPaymentSuccessWithResilience(bookingId);
             } else {
                 System.out
                         .println("Payment failed for booking " + bookingId + ", notifying booking service to release");
-                bookingServiceClient.releaseAfterPaymentFailure(bookingId);
+                releaseAfterPaymentFailureWithResilience(bookingId);
             }
 
         } catch (Exception ex) {
@@ -143,6 +143,10 @@ public class PaymentService {
             return; // public/system call? or maybe throw error. For now, strict if userId provided.
         // If we want to strictly enforce, we should require userId.
 
+        verifyOwnershipWithResilience(bookingId, userId);
+    }
+
+    private void verifyOwnershipWithResilience(Long bookingId, String userId) {
         try {
             BookingPaymentInfoResponse booking = bookingServiceClient.getBookingForPayment(bookingId);
             if (!userId.equals(booking.getUserId())) {
@@ -204,5 +208,13 @@ public class PaymentService {
         return paymentRepository.findByBookingIdIn(bookingIds).stream()
                 .map(this::toResponse)
                 .toList();
+    }
+
+    private void markPaymentSuccessWithResilience(Long bookingId) {
+        bookingServiceClient.markPaymentSuccess(bookingId);
+    }
+
+    private void releaseAfterPaymentFailureWithResilience(Long bookingId) {
+        bookingServiceClient.releaseAfterPaymentFailure(bookingId);
     }
 }

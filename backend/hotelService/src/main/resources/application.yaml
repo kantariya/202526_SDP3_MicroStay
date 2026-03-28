@@ -46,3 +46,13 @@ gemini:
   api:
     key: AIzaSyCVZ7PPx3rl7JV_BbonYuOBvRwMOgMoqjk
     url: https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent
+
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics
+  endpoint:
+    health:
+      show-details: always

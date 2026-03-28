@@ -11,6 +11,7 @@ import com.microstay.userService.repository.UserRepository;
 import com.microstay.userService.util.JwtUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -119,6 +120,7 @@ public class AuthService {
 
         return issueJwt(u);
     }
+
 
     public Map<String, Object> verifyOtp(Long id, String otp) {
         if (!otpService.verify(id, otp))

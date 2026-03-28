@@ -45,6 +45,11 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
             LocalDate date
     );
 
+    Optional<Booking> findTopByUserIdAndHotelIdAndStatusOrderByCheckOutDateDesc(
+            String userId,
+            String hotelId,
+            BookingStatus status
+    );
 
 }
 

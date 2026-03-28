@@ -1,5 +1,6 @@
 package com.microstay.hotelService.service.impl;
 
+import com.microstay.hotelService.client.BookingClient;
 import com.microstay.hotelService.entity.HotelReview;
 import com.microstay.hotelService.repository.ReviewRepository;
 import com.microstay.hotelService.service.ReviewService;
@@ -8,12 +9,14 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
 public class ReviewServiceImpl implements ReviewService {
 
     private final ReviewRepository reviewRepository;
+    private final BookingClient bookingClient;
 
     @Override
     public List<HotelReview> getReviews(String hotelId, String role) {
@@ -25,9 +28,29 @@ public class ReviewServiceImpl implements ReviewService {
 
     @Override
     public HotelReview addReview(String hotelId, String userId, HotelReview review) {
+
+        // 1️⃣ Check eligibility via Booking Service
+        Map<String, Object> response = bookingClient.checkEligibility(userId, hotelId);
+
+        boolean eligible = Boolean.TRUE.equals(response.get("eligible"));
+
+        if (!eligible) {
+            throw new RuntimeException(
+                    "You can only review within 3 days after checkout"
+            );
+        }
+
+        // 2️⃣ Prevent duplicate reviews (optional but recommended)
+        if (reviewRepository.existsByUserIdAndHotelId(userId, hotelId)) {
+            throw new RuntimeException("You have already reviewed this hotel");
+        }
+
+        // 3️⃣ Set review data
         review.setHotelId(hotelId);
         review.setUserId(userId);
         review.setCreatedAt(Instant.now());
+
+        // 4️⃣ Save review
         return reviewRepository.save(review);
     }
 

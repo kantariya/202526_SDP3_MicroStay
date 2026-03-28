@@ -187,10 +187,8 @@ public class BookingService {
                                         bookedRoom.getRoomId(),
                                         bookedRoom.getNumberOfRooms());
 
-                        // call hotel service to increase inventory
-                        hotelClient.releaseRooms(
-                                        booking.getHotelId(),
-                                        releaseRequest);
+                        // call hotel service to increase inventory with resilience
+                        releaseRooms(booking.getHotelId(), releaseRequest);
                 }
 
                 // ✅ update booking status
@@ -352,6 +350,10 @@ public class BookingService {
                                         return guest;
                                 })
                                 .toList();
+        }
+
+        private void releaseRooms(String hotelId, ConfirmBookingRequest releaseRequest) {
+                hotelClient.releaseRooms(hotelId, releaseRequest);
         }
 
 }

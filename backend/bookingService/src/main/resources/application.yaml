@@ -53,6 +53,16 @@ feign:
         readTimeout: 5000
 
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics
+  endpoint:
+    health:
+      show-details: always
+
+
 logging:
   level:
     # Shows the exact mapping of the incoming URL to your Controller

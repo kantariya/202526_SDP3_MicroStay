@@ -4,12 +4,14 @@ import com.microstay.bookingService.dto.BookingPaymentInfoResponse;
 import com.microstay.bookingService.entity.Booking;
 import com.microstay.bookingService.entity.BookingStatus;
 import com.microstay.bookingService.repository.BookingRepository;
+import com.microstay.bookingService.service.InternalBookingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
@@ -24,6 +26,7 @@ import static org.springframework.http.HttpStatus.NOT_FOUND;
 public class InternalBookingController {
 
         private final BookingRepository bookingRepository;
+        private final InternalBookingService internalBookingService;
 
         @GetMapping("/{bookingId}")
         public ResponseEntity<BookingPaymentInfoResponse> getBookingForPayment(
@@ -57,5 +60,14 @@ public class InternalBookingController {
                 bookingRepository.save(booking);
 
                 return ResponseEntity.ok().build();
+        }
+
+        @GetMapping("/eligible-for-review/{hotelId}")
+        public ResponseEntity<?> checkEligibility(
+                @RequestHeader("X-User-Id") String userId,
+                @PathVariable String hotelId
+        ) {
+                boolean eligible = internalBookingService.isEligibleForReview(userId, hotelId);
+                return ResponseEntity.ok(Map.of("eligible", eligible));
         }
 }
