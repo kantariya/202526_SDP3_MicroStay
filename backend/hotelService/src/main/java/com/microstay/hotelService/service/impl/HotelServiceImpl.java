@@ -97,7 +97,9 @@ public class HotelServiceImpl implements HotelService {
                         h.getLocation().getCity(),
                         h.getLocation().getCity(),
                         h.getStarRating(),
-                        h.getRatingSummary() != null ? h.getRatingSummary().getAverage() : 0.0,
+                        h.getRatingSummary() != null 
+                            ? new HotelCardResponse.RatingSummary(h.getRatingSummary().getAverage(), h.getRatingSummary().getTotalReviews()) 
+                            : new HotelCardResponse.RatingSummary(0.0, 0),
                         h.getRooms().stream()
                                 .map(r -> r.getPricing().getBasePrice())
                                 .min(Double::compareTo)
@@ -142,7 +144,9 @@ public class HotelServiceImpl implements HotelService {
                 hotel.getLocation().getCity(),
                 hotel.getLocation().getCountry(),
                 hotel.getStarRating(),
-                hotel.getRatingSummary() != null ? hotel.getRatingSummary().getAverage() : 0.0,
+                hotel.getRatingSummary() != null 
+                    ? new HotelCardResponse.RatingSummary(hotel.getRatingSummary().getAverage(), hotel.getRatingSummary().getTotalReviews()) 
+                    : new HotelCardResponse.RatingSummary(0.0, 0),
                 hotel.getRooms().stream()
                         .map(r -> r.getPricing().getBasePrice())
                         .min(Double::compareTo)

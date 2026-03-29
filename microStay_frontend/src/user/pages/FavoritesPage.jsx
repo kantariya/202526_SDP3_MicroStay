@@ -50,7 +50,7 @@ const FavoritesPage = () => {
               Your Favourites ❤️
             </h1>
             <p className="text-slate-500">
-              Saved properties for your next trip
+              Saved Hotels for your next trip
             </p>
           </div>
 

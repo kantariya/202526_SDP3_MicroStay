@@ -21,13 +21,22 @@ public class AiFilterParser {
             String aiResponse = geminiService.extractFilters(message);
             System.out.println("Gemini RAW Response: " + aiResponse);
 
+            if (aiResponse == null || aiResponse.equals("{}")) {
+                return new HotelSearchFilter();
+            }
+
             JsonNode root = objectMapper.readTree(aiResponse);
-            HotelSearchFilter filter = objectMapper.treeToValue(root, HotelSearchFilter.class);
+
+            if (root.has("error")) {
+                System.err.println("Gemini API returned error: " + root.path("error").path("message").asText());
+                return new HotelSearchFilter();
+            }
 
             JsonNode candidates = root.path("candidates");
 
             if (!candidates.isArray() || candidates.isEmpty()) {
-                throw new RuntimeException("Gemini returned no candidates");
+                System.err.println("Gemini returned no candidates.");
+                return new HotelSearchFilter();
             }
 
             JsonNode textNode = candidates.get(0)
@@ -37,7 +46,8 @@ public class AiFilterParser {
                     .path("text");
 
             if (textNode == null || textNode.isMissingNode()) {
-                throw new RuntimeException("Gemini returned empty text");
+                System.err.println("Gemini returned empty text.");
+                return new HotelSearchFilter();
             }
 
             String jsonText = textNode.asText();

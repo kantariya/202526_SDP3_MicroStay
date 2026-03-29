@@ -20,12 +20,16 @@ public class ChatController {
     private final HotelSearchService hotelSearchService;
 
     @PostMapping("/search")
-    public String searchHotels(@RequestBody String message) {
+    public Object searchHotels(@RequestBody String message) {
 
         HotelSearchFilter filter = aiFilterParser.parseFilters(message);
 
         List<Hotel> hotels = hotelSearchService.searchWithFilter(filter);
 
-        return hotelSearchService.formatHotels(hotels);
+        if (hotels.isEmpty()) {
+            return hotelSearchService.formatHotels(hotels);
+        }
+
+        return hotels;
     }
 }

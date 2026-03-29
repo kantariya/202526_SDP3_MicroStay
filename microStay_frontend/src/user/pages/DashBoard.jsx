@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, MapPin, Calendar, Users, ArrowRight, Sparkles } from 'lucide-react';
+import { useMemo } from 'react';
 import api from "../../utils/api";
 import HotelCard from '../components/HotelCard';
 import DateRangePicker from '../components/DateRangePicker';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import { City, Country } from 'country-state-city';
-import ChatBot from "./Chatbot.jsx";
+import AsyncSelect from 'react-select/async';
+import ChatBot from "../components/ChatBot.jsx";
 
 const Dashboard = () => {
   const [hotels, setHotels] = useState([]);
@@ -34,11 +36,125 @@ const Dashboard = () => {
       .finally(() => setLoading(false));
   }, []);
 
+  const countryMap = useMemo(() => {
+    return Country.getAllCountries().reduce((acc, c) => {
+      acc[c.isoCode] = { name: c.name, flag: c.flag };
+      return acc;
+    }, {});
+  }, []);
+
+  // --- Location Search Logic ---
+  const loadLocationOptions = (inputValue, callback) => {
+    if (!inputValue || inputValue.length < 1) { // Reduced threshold for better immediate feedback
+      // Show some popular cities by default (combined with country)
+      const popularCities = City.getAllCities()
+        .slice(0, 10)
+        .map(city => {
+          const country = countryMap[city.countryCode] || { name: city.countryCode };
+          return {
+            value: city.name,
+            label: `${city.name}, ${country.name}`,
+            type: 'city'
+          };
+        });
+      callback(popularCities);
+      return;
+    }
+
+    const searchLower = inputValue.toLowerCase();
+
+    // Filter Cities and combine with Country Name
+    const filteredCities = City.getAllCities()
+      .filter(city => city.name.toLowerCase().includes(searchLower))
+      .slice(0, 100) // Performance limit
+      .map(city => {
+        const country = countryMap[city.countryCode] || { name: city.countryCode };
+        return {
+          value: city.name,
+          label: `${city.name}, ${country.name}`,
+          type: 'city'
+        };
+      });
+
+    callback(filteredCities);
+  };
+
+  const selectStyles = {
+    control: (base) => ({
+      ...base,
+      backgroundColor: 'transparent',
+      border: 'none',
+      boxShadow: 'none',
+      minHeight: '24px',
+      padding: 0,
+    }),
+    valueContainer: (base) => ({
+      ...base,
+      padding: 0,
+      margin: 0,
+    }),
+    input: (base) => ({
+      ...base,
+      margin: 0,
+      padding: 0,
+      color: '#0f172a',
+      fontWeight: '700',
+      fontSize: '0.875rem',
+    }),
+    singleValue: (base) => ({
+      ...base,
+      color: '#0f172a',
+      fontWeight: '700',
+      fontSize: '0.875rem',
+      marginLeft: 0,
+    }),
+    placeholder: (base) => ({
+      ...base,
+      color: '#94a3b8',
+      fontWeight: '700',
+      fontSize: '0.875rem',
+      marginLeft: 0,
+    }),
+    indicatorSeparator: () => ({ display: 'none' }),
+    dropdownIndicator: () => ({ display: 'none' }),
+    menu: (base) => ({
+      ...base,
+      borderRadius: '16px',
+      boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+      border: '1px solid #cbd5e1', // Stronger grey border for clarity
+      overflow: 'hidden',
+      zIndex: 50,
+      width: '175px', // Increased width significantly to prevent word clipping
+      marginLeft: '-40px',
+      backgroundColor: 'white', // Explicit background
+    }),
+    menuList: (base) => ({
+      ...base,
+      padding: 0,
+      backgroundColor: 'white',
+    }),
+    option: (base, state) => ({
+      ...base,
+      fontSize: '0.875rem',
+      fontWeight: state.isSelected ? '700' : '500',
+      backgroundColor: state.isSelected
+        ? '#eff6ff'
+        : (state.isFocused ? '#f1f5f9' : 'white'),
+      color: state.isSelected ? '#2563eb' : '#334155',
+      cursor: 'pointer',
+      padding: '10px 15px',
+      whiteSpace: 'nowrap',
+    }),
+  };
+
   const handleSearch = (e) => {
     e.preventDefault();
     // Navigate to Search Page with query params
     const params = new URLSearchParams();
-    if (city) params.append('city', city);
+    if (city) {
+      const cityName = city.split(',')[0].trim();
+      params.append('city', cityName);
+    }
     if (dates.checkIn) params.append('checkIn', dates.checkIn);
     if (dates.checkOut) params.append('checkOut', dates.checkOut);
     params.append('guests', guests);
@@ -79,7 +195,7 @@ const Dashboard = () => {
       <div className="min-h-screen bg-white">
 
         {/* HERO SECTION */}
-        <section className="relative bg-slate-900 py-20 lg:py-32 px-6 overflow-hidden">
+        <section className="relative bg-slate-900 py-20 lg:py-32 px-6">
           {/* Background Pattern */}
           <div className="absolute inset-0 opacity-20">
             <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
@@ -103,13 +219,18 @@ const Dashboard = () => {
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Where?</label>
                   <div className="flex items-center gap-2">
                     <MapPin size={18} className="text-blue-600 flex-shrink-0" />
-                    <input
-                      type="text"
-                      placeholder="City or Hotel..."
-                      className="bg-transparent w-full text-slate-900 font-bold text-sm outline-none placeholder:text-slate-400"
-                      value={city}
-                      onChange={e => setCity(e.target.value)}
-                    />
+                    <div className="w-full">
+                      <AsyncSelect
+                        cacheOptions
+                        defaultOptions
+                        loadOptions={loadLocationOptions}
+                        placeholder="City"
+                        styles={selectStyles}
+                        onChange={(opt) => setCity(opt ? opt.label : '')}
+                        value={city ? { label: city, value: city } : null}
+                        noOptionsMessage={({ inputValue }) => !inputValue ? "Start typing..." : "No location found"}
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -244,7 +365,7 @@ const Dashboard = () => {
 
       </div>
 
-      <ChatBot />
+      <ChatBot favorites={favorites} setFavorites={setFavorites} />
     </>
   );
 };

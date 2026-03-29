@@ -62,7 +62,7 @@ const SearchPage = () => {
         setLoading(true);
         try {
             const params = new URLSearchParams();
-            
+
             // Add search parameters
             if (filters.city) params.append('city', filters.city);
             if (filters.checkIn) params.append('checkIn', filters.checkIn);
@@ -71,7 +71,7 @@ const SearchPage = () => {
             if (filters.maxPrice) params.append('maxPrice', filters.maxPrice);
             if (filters.starRating) params.append('starRating', filters.starRating);
             if (filters.roomType) params.append('roomType', filters.roomType);
-            
+
             // Add facilities as multiple parameters
             if (filters.facilities && filters.facilities.length > 0) {
                 filters.facilities.forEach(facility => {
@@ -82,7 +82,7 @@ const SearchPage = () => {
             // Pagination
             params.append('page', currentPage);
             params.append('size', 10);
-            
+
             // Sort Direction - only add if user has selected a sort option
             if (filters.sortDirection) {
                 params.append('sortDirection', filters.sortDirection);
@@ -93,7 +93,7 @@ const SearchPage = () => {
             const response = await api.get(`/hotels/search?${params.toString()}`);
 
             console.log("Search response:", response.data);
-            
+
             // Handle paginated response
             if (response.data.content) {
                 setHotels(response.data.content);
@@ -136,7 +136,7 @@ const SearchPage = () => {
                         onClick={() => setShowMobileFilters(!showMobileFilters)}
                         className="flex items-center justify-center gap-2 bg-white border border-gray-200 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 hover:bg-gray-50 hover:border-gray-300 transition-all shadow-sm xl:hidden"
                     >
-                        <SlidersHorizontal size={16} /> 
+                        <SlidersHorizontal size={16} />
                         {showMobileFilters ? 'Hide Filters' : 'Show Filters'}
                     </button>
                 </div>
@@ -165,7 +165,7 @@ const SearchPage = () => {
                                         onViewDetails={() => handleViewDetails(hotel.id)}
                                     />
                                 ))}
-                                
+
                                 {/* Pagination */}
                                 {totalPages > 1 && (
                                     <div className="flex flex-wrap justify-center items-center gap-3 mt-8 pt-6 border-t border-gray-200">
@@ -192,17 +192,17 @@ const SearchPage = () => {
                         ) : (
                             <div className="bg-white rounded-3xl p-8 md:p-12 text-center border border-gray-100">
                                 <div className="text-6xl mb-4">🏚️</div>
-                                <h3 className="text-xl font-bold text-slate-900 mb-2">No properties found</h3>
+                                <h3 className="text-xl font-bold text-slate-900 mb-2">No Hotels found</h3>
                                 <p className="text-slate-500 mb-6">Try adjusting your filters or search for a different city.</p>
                                 <button
-                                    onClick={() => setFilters({ 
-                                        city: '', 
-                                        checkIn: '', 
-                                        checkOut: '', 
-                                        minPrice: '', 
-                                        maxPrice: '', 
-                                        starRating: '', 
-                                        roomType: '', 
+                                    onClick={() => setFilters({
+                                        city: '',
+                                        checkIn: '',
+                                        checkOut: '',
+                                        minPrice: '',
+                                        maxPrice: '',
+                                        starRating: '',
+                                        roomType: '',
                                         facilities: [],
                                         sortDirection: ''
                                     })}
