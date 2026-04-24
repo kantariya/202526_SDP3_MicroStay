@@ -42,10 +42,8 @@ eureka:
     register-with-eureka: true
     fetch-registry: true
     
-gemini:
-  api:
-    key: [ENCRYPTION_KEY]
-    url: 
+
+
 
 management:
   endpoints:

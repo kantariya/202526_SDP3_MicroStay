@@ -20,6 +20,9 @@ public class RedisPasswordResetTokenService {
     }
 
     public String consume(String token) {
+        System.out.println("Token: " + token);
+        System.out.println("Redis key: pwdreset:" + token);
+        System.out.println("Value in Redis: " + redis.opsForValue().get("pwdreset:" + token));
         String key = "pwdreset:" + token;
         String email = redis.opsForValue().get(key);
         if (email != null) {

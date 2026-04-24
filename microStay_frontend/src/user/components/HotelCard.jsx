@@ -29,7 +29,10 @@ const HotelCard = ({ hotel, favorites, setFavorites }) => {
     };
 
     const lowestPrice = useMemo(() => {
-        if (!hotel.rooms || hotel.rooms.length === 0) return 0;
+        if (!hotel.rooms || hotel.rooms.length === 0) {
+            if(hotel.startingPrice) return hotel.startingPrice;
+            return 0;
+        }
         const prices = hotel.rooms
             .map(r => r.pricing?.basePrice)
             .filter(price => price !== undefined && price !== null);

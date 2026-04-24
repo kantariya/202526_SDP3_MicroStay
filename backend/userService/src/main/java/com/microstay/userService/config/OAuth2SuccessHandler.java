@@ -31,7 +31,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
 
         String email = oAuth2User.getAttribute("email");
         String firstName = oAuth2User.getAttribute("given_name");
-        String lastName = oAuth2User.getAttribute("family_name");
+        String lastName = oAuth2User.getAttribute("family_name") != null ? oAuth2User.getAttribute("family_name") : "User";
 
         if (email == null) {
             throw new RuntimeException("Email not found from Google account");
