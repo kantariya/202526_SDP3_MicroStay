@@ -102,14 +102,14 @@ const ManagerDashboard = () => {
             </div>
 
             {/* Placeholder for more dashboard content */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 h-64 flex items-center justify-center text-slate-500">
                     Recent Bookings (Coming Soon)
                 </div>
                 <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 h-64 flex items-center justify-center text-slate-500">
                     Revenue Chart (Coming Soon)
                 </div>
-            </div>
+            </div> */}
         </div>
     );
 };

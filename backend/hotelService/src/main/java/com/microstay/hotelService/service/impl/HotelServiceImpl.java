@@ -56,14 +56,9 @@ public class HotelServiceImpl implements HotelService {
             city = "Delhi";
         }
 
-        Pageable pageable = PageRequest.of(page, size);
+        log.debug("Searching hotels city={}, checkIn={}, checkOut={}, minPrice={}, maxPrice={}, starRating={}, roomType={}, facilities={}, page={}, size={}, sortDirection={}", city, checkIn, checkOut, minPrice, maxPrice, starRating, roomType, facilities, page, size, sortDirection);
 
-        System.out.println("Search params - city: " + city + ", checkIn: " + checkIn + ", checkOut: " + checkOut +
-                ", minPrice: " + minPrice + ", maxPrice: " + maxPrice +
-                ", starRating: " + starRating + ", roomType: " + roomType +
-                ", facilities: " + facilities +
-                ", page: " + page + ", size: " + size +
-                ", sortDirection: " + sortDirection);
+        Pageable pageable = PageRequest.of(page, size);
 
         return hotelRepository.searchHotels(
                 city,
@@ -85,10 +80,14 @@ public class HotelServiceImpl implements HotelService {
         // Strictly enforce status = ACTIVE
         List<Hotel> hotels;
         if (city != null && !city.isBlank()) {
+            log.debug("Fetching hotel cards for city filter={}", city);
             hotels = hotelRepository.findByLocationCityContainingIgnoreCaseAndStatus(city, HotelStatus.ACTIVE);
         } else {
+            log.debug("Fetching hotel cards without city filter");
             hotels = hotelRepository.findByStatus(HotelStatus.ACTIVE);
         }
+
+        log.debug("Found {} active hotels for hotel card response", hotels.size());
 
         return hotels.stream()
                 .map(h -> new HotelCardResponse(
@@ -111,6 +110,7 @@ public class HotelServiceImpl implements HotelService {
     @Override
     public List<Hotel> getAllHotels(String city, HotelStatus status, String managerId) {
         // Dynamic admin filter using ExampleMatcher
+        log.debug("Listing hotels city={}, status={}, managerId={}", city, status, managerId);
         Hotel probe = new Hotel();
         if (status != null)
             probe.setStatus(status);
@@ -130,11 +130,14 @@ public class HotelServiceImpl implements HotelService {
                 .withMatcher("managerId", match -> match.exact())
                 .withMatcher("location.city", match -> match.contains().ignoreCase());
 
-        return hotelRepository.findAll(org.springframework.data.domain.Example.of(probe, matcher));
+        List<Hotel> hotels = hotelRepository.findAll(org.springframework.data.domain.Example.of(probe, matcher));
+        log.debug("Found {} hotels for admin listing", hotels.size());
+        return hotels;
     }
 
     @Override
     public HotelCardResponse getHotelCardById(String hotelId) {
+        log.debug("Fetching hotel card by hotelId={}", hotelId);
         Hotel hotel = hotelRepository.findById(hotelId)
                 .orElseThrow(() -> new RuntimeException("Hotel not found"));
 
@@ -156,16 +159,19 @@ public class HotelServiceImpl implements HotelService {
 
     @Override
     public List<Hotel> getHotelsByManagerId(String managerId) {
+        log.debug("Fetching hotels by managerId={}", managerId);
         return hotelRepository.findByManagerId(managerId);
     }
 
     @Override
     public List<Hotel> getHotelsByStatus(HotelStatus status) {
+        log.debug("Fetching hotels by status={}", status);
         return hotelRepository.findByStatus(status);
     }
 
     @Override
     public Hotel updateHotelStatus(String hotelId, HotelStatus status) {
+        log.info("Updating hotel status hotelId={} status={}", hotelId, status);
         Hotel hotel = getHotelDetails(hotelId, true);
         hotel.setStatus(status);
         hotel.setUpdatedAt(Instant.now());
@@ -174,6 +180,7 @@ public class HotelServiceImpl implements HotelService {
 
     @Override
     public Hotel getHotelDetails(String hotelId, boolean includeInactiveRooms) {
+        log.debug("Fetching hotel details hotelId={}, includeInactiveRooms={}", hotelId, includeInactiveRooms);
         Hotel hotel = hotelRepository.findById(hotelId)
                 .orElseThrow(() -> new RuntimeException("Hotel not found"));
 
@@ -191,6 +198,7 @@ public class HotelServiceImpl implements HotelService {
     @Override
     @Transactional
     public Hotel createHotel(Hotel hotel, String role, String userId) {
+        log.info("Creating hotel for userId={} with role={}", userId, role);
         hotel.setCreatedAt(Instant.now());
         hotel.setUpdatedAt(Instant.now());
         hotel.setManagerId(userId);
@@ -201,12 +209,15 @@ public class HotelServiceImpl implements HotelService {
             hotel.setStatus(HotelStatus.PENDING);
         }
 
-        return hotelRepository.save(hotel);
+        Hotel saved = hotelRepository.save(hotel);
+        log.info("Hotel created hotelId={}, status={}, managerId={}", saved.getId(), saved.getStatus(), saved.getManagerId());
+        return saved;
     }
 
     @Override
     @Transactional
     public Hotel updateHotel(String hotelId, Hotel hotel) {
+        log.info("Updating hotel hotelId={}", hotelId);
         Hotel existing = getHotelDetails(hotelId, true);
 
         // Note: Ownership check should ideally be here if we pass userId/role to this
@@ -224,17 +235,22 @@ public class HotelServiceImpl implements HotelService {
         if (hotel.getManagerId() == null)
             hotel.setManagerId(existing.getManagerId());
 
-        return hotelRepository.save(hotel);
+        Hotel saved = hotelRepository.save(hotel);
+        log.info("Hotel updated hotelId={}, status={}, managerId={}", saved.getId(), saved.getStatus(), saved.getManagerId());
+        return saved;
     }
 
     @Override
     @Transactional
     public void deleteHotel(String hotelId) {
+        log.warn("Deleting hotel hotelId={}", hotelId);
         hotelRepository.deleteById(hotelId);
     }
 
     @Override
     public AvailabilityResponse checkAvailability(AvailabilityRequest request) {
+
+        log.debug("Checking hotel availability hotelId={}, roomId={}, checkIn={}, checkOut={}, roomsRequired={}", request.getHotelId(), request.getRoomId(), request.getCheckInDate(), request.getCheckOutDate(), request.getRoomsRequired());
 
         Hotel hotel = getHotelDetails(request.getHotelId(), true);
         Room room = getRoom(hotel, request.getRoomId());
@@ -252,7 +268,7 @@ public class HotelServiceImpl implements HotelService {
 
             Availability availability = availabilityMap.get(date);
 
-            System.out.println("Checking availability for date: " + availability + " with date: " + date);
+            log.debug("Availability lookup hotelId={}, roomId={}, date={}, availability={}", request.getHotelId(), request.getRoomId(), date, availability);
 
             // If date not present, assume full availability
             if (availability == null) {
@@ -261,11 +277,11 @@ public class HotelServiceImpl implements HotelService {
                         room.getInventory().getTotalRooms());
                 room.getAvailability().add(availability);
                 availabilityMap.put(date, availability);
+                log.debug("Created default availability row for hotelId={}, roomId={}, date={}, rooms={}", request.getHotelId(), request.getRoomId(), date, room.getInventory().getTotalRooms());
             }
 
             if (availability.getAvailableRooms() < request.getRoomsRequired()) {
-                System.out.println("Not enough rooms for date " + date + ": required " + request.getRoomsRequired() +
-                        ", available " + availability.getAvailableRooms());
+                log.warn("Insufficient rooms for hotelId={}, roomId={}, date={}, required={}, available={}", request.getHotelId(), request.getRoomId(), date, request.getRoomsRequired(), availability.getAvailableRooms());
                 return new AvailabilityResponse(
                         false,
                         "Rooms not available on " + date,
@@ -287,6 +303,7 @@ public class HotelServiceImpl implements HotelService {
         // No inventory change here, but availability rows may be initialized
         hotelRepository.save(hotel);
 
+        log.debug("Availability success hotelId={}, roomId={}, totalAmount={}", request.getHotelId(), request.getRoomId(), totalAmount);
         return new AvailabilityResponse(
                 true,
                 "Rooms available",
@@ -297,6 +314,8 @@ public class HotelServiceImpl implements HotelService {
     @Override
     @Transactional
     public AvailabilityResponse confirmBooking(ConfirmBookingRequest request) {
+
+        log.info("Confirming booking inventory hotelId={}, roomId={}, bookingId={}, roomsRequired={}", request.getHotelId(), request.getRoomId(), request.getBookingId(), request.getRoomsRequired());
 
         Hotel hotel = getHotelDetails(request.getHotelId(), true);
         Room room = getRoom(hotel, request.getRoomId());
@@ -314,8 +333,7 @@ public class HotelServiceImpl implements HotelService {
 
             Availability availability = availabilityMap.get(date);
 
-            System.out.println("availablity : " + availability);
-            System.out.println("request :" + request);
+            log.debug("Booking availability check hotelId={}, roomId={}, date={}, availability={}, request={}", request.getHotelId(), request.getRoomId(), date, availability, request.getBookingId());
 
             if (availability == null ||
                     availability.getAvailableRooms() < request.getRoomsRequired()) {
@@ -328,7 +346,7 @@ public class HotelServiceImpl implements HotelService {
             availability.setAvailableRooms(
                     availability.getAvailableRooms() - request.getRoomsRequired());
 
-            System.out.println("Updated availability for date " + date + ": " + availability);
+            log.debug("Updated availability hotelId={}, roomId={}, date={}, remainingRooms={}", request.getHotelId(), request.getRoomId(), date, availability.getAvailableRooms());
 
             // Price calculation
             boolean isWeekend = date.getDayOfWeek().getValue() >= 6;
@@ -343,6 +361,7 @@ public class HotelServiceImpl implements HotelService {
 
         hotelRepository.save(hotel);
 
+        log.info("Booking inventory confirmed hotelId={}, roomId={}, bookingId={}, totalAmount={}", request.getHotelId(), request.getRoomId(), request.getBookingId(), totalAmount);
         return new AvailabilityResponse(
                 true,
                 "Booking confirmed",
@@ -394,10 +413,7 @@ public class HotelServiceImpl implements HotelService {
 
             availability.setAvailableRooms(newVal);
 
-            log.info("Released {} rooms for {} → now {}",
-                    request.getRoomsRequired(),
-                    date,
-                    newVal);
+            log.info("Released {} rooms for {} → now {}", request.getRoomsRequired(), date, newVal);
 
             date = date.plusDays(1);
         }
@@ -423,7 +439,7 @@ public class HotelServiceImpl implements HotelService {
         Map<LocalDate, Availability> map = new HashMap<>();
 
         for (Availability a : room.getAvailability()) {
-            System.out.println("Availability: " + a);
+            log.debug("Loaded availability row {}", a);
             map.put(a.getDate(), a);
         }
 

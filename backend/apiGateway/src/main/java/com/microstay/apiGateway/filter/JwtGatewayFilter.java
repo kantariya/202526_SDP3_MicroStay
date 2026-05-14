@@ -1,5 +1,6 @@
 package com.microstay.apiGateway.filter;
 
+import com.microstay.apiGateway.exception.GatewayExceptionHandler;
 import com.microstay.apiGateway.util.JwtUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
@@ -7,7 +8,6 @@ import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.core.Ordered;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
@@ -17,71 +17,71 @@ import reactor.core.publisher.Mono;
 public class JwtGatewayFilter implements GlobalFilter, Ordered {
 
     private final JwtUtils jwtUtils;
+    private final GatewayExceptionHandler gatewayExceptionHandler;
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
 
-        String path = exchange.getRequest().getURI().getPath();
-        HttpMethod method = exchange.getRequest().getMethod();
+        try {
+            String path = exchange.getRequest().getURI().getPath();
+            HttpMethod method = exchange.getRequest().getMethod();
 
-        // ✅ ALWAYS allow CORS preflight
-        if (method == HttpMethod.OPTIONS) {
-            return chain.filter(exchange);
-        }
-
-        // ✅ PUBLIC ENDPOINTS
-        if (isPublicEndpoint(path, method)) {
-            return chain.filter(exchange);
-        }
-
-        // 🔐 JWT REQUIRED BELOW
-        String authHeader = exchange.getRequest()
-                .getHeaders()
-                .getFirst(HttpHeaders.AUTHORIZATION);
-
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            return onError(exchange, HttpStatus.UNAUTHORIZED);
-        }
-
-        String token = authHeader.substring(7);
-
-        if (!jwtUtils.isTokenValid(token)) {
-            return onError(exchange, HttpStatus.UNAUTHORIZED);
-        }
-
-        // ✅ Inject identity headers for downstream services
-        String userId = jwtUtils.extractUserId(token);
-        String email = jwtUtils.extractEmail(token);
-        String role = jwtUtils.extractRole(token); // e.g. "ROLE_ADMIN" or "ADMIN"
-
-        // 🛡️ ROLE BASED ACCESS CONTROL (RBAC)
-        if (path.startsWith("/api/admin")) {
-            if (!"ADMIN".equalsIgnoreCase(role) && !"ROLE_ADMIN".equalsIgnoreCase(role)) {
-                return onError(exchange, HttpStatus.FORBIDDEN);
+            // ✅ ALWAYS allow CORS preflight
+            if (method == HttpMethod.OPTIONS) {
+                return chain.filter(exchange);
             }
-        }
 
-        if (path.startsWith("/api/manager")) {
-            if (!"ADMIN".equalsIgnoreCase(role) && !"ROLE_ADMIN".equalsIgnoreCase(role)
-                    && !"HOTEL_MANAGER".equalsIgnoreCase(role) && !"ROLE_HOTEL_MANAGER".equalsIgnoreCase(role)) {
-                return onError(exchange, HttpStatus.FORBIDDEN);
+            // ✅ PUBLIC ENDPOINTS
+            if (isPublicEndpoint(path, method)) {
+                return chain.filter(exchange);
             }
+
+            // 🔐 JWT REQUIRED BELOW
+            String authHeader = exchange.getRequest()
+                    .getHeaders()
+                    .getFirst(HttpHeaders.AUTHORIZATION);
+
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                return gatewayExceptionHandler.handleUnauthorized(exchange, "Missing or invalid Authorization header");
+            }
+
+            String token = authHeader.substring(7);
+
+            if (!jwtUtils.isTokenValid(token)) {
+                return gatewayExceptionHandler.handleUnauthorized(exchange, "Invalid or expired token");
+            }
+
+            // ✅ Inject identity headers for downstream services
+            String userId = jwtUtils.extractUserId(token);
+            String email = jwtUtils.extractEmail(token);
+            String role = jwtUtils.extractRole(token); // e.g. "ROLE_ADMIN" or "ADMIN"
+
+            // 🛡️ ROLE BASED ACCESS CONTROL (RBAC)
+            if (path.startsWith("/api/admin")) {
+                if (!"ADMIN".equalsIgnoreCase(role) && !"ROLE_ADMIN".equalsIgnoreCase(role)) {
+                    return gatewayExceptionHandler.handleForbidden(exchange, "Admin access required");
+                }
+            }
+
+            if (path.startsWith("/api/manager")) {
+                if (!"ADMIN".equalsIgnoreCase(role) && !"ROLE_ADMIN".equalsIgnoreCase(role)
+                        && !"HOTEL_MANAGER".equalsIgnoreCase(role) && !"ROLE_HOTEL_MANAGER".equalsIgnoreCase(role)) {
+                    return gatewayExceptionHandler.handleForbidden(exchange, "Manager access required");
+                }
+            }
+
+            ServerWebExchange mutated = exchange.mutate()
+                    .request(r -> r.headers(h -> {
+                        h.set("X-User-Id", userId);
+                        h.set("X-User-Email", email);
+                        h.set("X-User-Role", role);
+                    }))
+                    .build();
+
+            return chain.filter(mutated);
+        } catch (Exception ex) {
+            return gatewayExceptionHandler.handleInternalError(exchange, ex);
         }
-
-        ServerWebExchange mutated = exchange.mutate()
-                .request(r -> r.headers(h -> {
-                    h.set("X-User-Id", userId);
-                    h.set("X-User-Email", email);
-                    h.set("X-User-Role", role);
-                }))
-                .build();
-
-        return chain.filter(mutated);
-    }
-
-    private Mono<Void> onError(ServerWebExchange exchange, HttpStatus status) {
-        exchange.getResponse().setStatusCode(status);
-        return exchange.getResponse().setComplete();
     }
 
     private boolean isPublicEndpoint(String path, HttpMethod method) {

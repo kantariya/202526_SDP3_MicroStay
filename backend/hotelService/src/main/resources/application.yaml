@@ -42,7 +42,10 @@ eureka:
     register-with-eureka: true
     fetch-registry: true
     
-
+gemini:
+  api:
+    key: 
+    url: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent
 
 
 management:

@@ -14,7 +14,9 @@ import com.microstay.hotelService.dto.HotelSearchFilter;
 import com.microstay.hotelService.entity.Hotel;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class HotelSearchService {
@@ -163,14 +165,11 @@ public class HotelSearchService {
                                                                                         .and("availableRooms").gt(0)));
                 }
 
-                if (!roomCriteria.isEmpty()) {
-
-                        query.addCriteria(
-                                        Criteria.where("rooms")
-                                                        .elemMatch(new Criteria()
-                                                                        .andOperator(roomCriteria
-                                                                                        .toArray(new Criteria[0]))));
-                }
+                query.addCriteria(
+                                Criteria.where("rooms")
+                                                .elemMatch(new Criteria()
+                                                                .andOperator(roomCriteria
+                                                                                .toArray(new Criteria[0]))));
 
                 // ---------- SORTING ----------
 
@@ -191,7 +190,7 @@ public class HotelSearchService {
                 // ---------- LIMIT ----------
                 query.limit(10);
 
-                System.out.println("Executing Query: " + query);
+                log.debug("Executing hotel search query={}", query);
 
                 return mongoTemplate.find(query, Hotel.class);
         }
@@ -225,14 +224,13 @@ public class HotelSearchService {
 
                         response.append("\n");
 
-                        hotel.getRooms().stream().limit(2).forEach(room -> {
+                        hotel.getRooms().stream().limit(2).forEach(room ->
 
                                 response.append(" • ")
                                                 .append(room.getRoomType())
                                                 .append(" ₹")
                                                 .append(room.getPricing().getBasePrice())
-                                                .append("\n");
-                        });
+                                                .append("\n"));
 
                         response.append("\n");
 

@@ -7,7 +7,6 @@ const BookingSuccess = () => {
     const location = useLocation();
     const { booking } = location.state || {};
 
-    console.log("BookingSuccess received booking:", booking);
 
     if (!booking) {
         return <div className="p-10 text-center"><button onClick={() => navigate('/')}>Go Home</button></div>;

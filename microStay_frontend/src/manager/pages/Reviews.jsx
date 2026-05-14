@@ -15,7 +15,6 @@ const ManagerReviews = () => {
         try {
             // Strictly use allowed API: GET /manager/reviews
             const response = await api.get('/manager/reviews');
-            console.log("Fetched reviews:", response.data);
             setReviews(response.data);
         } catch (error) {
             console.error("Error fetching reviews:", error);

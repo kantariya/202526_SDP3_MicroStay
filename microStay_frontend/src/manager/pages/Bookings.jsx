@@ -24,7 +24,6 @@ const ManagerBookings = () => {
             );
             const response = await api.get('/manager/bookings', { params });
             setBookings(response.data);
-            console.log("Fetched bookings:", response.data);
         } catch (error) {
             console.error("Error fetching bookings:", error);
             if (error.response && error.response.status === 404) {

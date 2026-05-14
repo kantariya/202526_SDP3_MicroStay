@@ -21,8 +21,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
@@ -39,6 +39,11 @@ public class BookingService {
         public BookingResponse initiateBooking(
                         InitiateBookingRequest request,
                         String userId) {
+                log.info("Initiating booking for userId={}, hotelId={}, rooms={}",
+                                userId,
+                                request.getHotelId(),
+                                request.getRooms() != null ? request.getRooms().size() : 0);
+
                 if (request.getCheckInDate() != null
                                 && request.getCheckOutDate() != null
                                 && !request.getCheckOutDate().isAfter(request.getCheckInDate())) {
@@ -59,10 +64,18 @@ public class BookingService {
                                 request.getHotelId(),
                                 availabilityRequest);
 
-                System.out.println("Availability response: " + availability);
+                log.debug("Availability check completed for hotelId={}, roomId={}, available={}, totalAmount={}, message={}",
+                                request.getHotelId(),
+                                room.getRoomId(),
+                                availability != null && availability.isAvailable(),
+                                availability != null ? availability.getTotalAmount() : null,
+                                availability != null ? availability.getMessage() : null);
 
-                if (!availability.isAvailable()) {
-                        throw new IllegalStateException(availability.getMessage());
+                if (availability == null || !availability.isAvailable()) {
+                        log.warn("Booking rejected due to availability mismatch for hotelId={}, roomId={}",
+                                        request.getHotelId(),
+                                        room.getRoomId());
+                        throw new IllegalStateException(availability != null ? availability.getMessage() : "Hotel availability service returned no response");
                 }
 
                 // 3️⃣ Generate booking reference EARLY (important)
@@ -76,6 +89,12 @@ public class BookingService {
                 confirmRequest.setCheckOutDate(request.getCheckOutDate());
                 confirmRequest.setRoomsRequired(room.getNumberOfRooms());
                 confirmRequest.setBookingId(bookingReference);
+
+                log.debug("Reserving inventory for bookingReference={}, hotelId={}, roomId={}, roomsRequired={}",
+                                bookingReference,
+                                request.getHotelId(),
+                                room.getRoomId(),
+                                room.getNumberOfRooms());
 
                 // 5️⃣ Reserve rooms (inventory decrement)
                 hotelClient.reserveRooms(
@@ -114,7 +133,7 @@ public class BookingService {
                 booking.setTotalRooms(
                                 bookedRooms.stream()
                                                 .map(BookedRoom::getNumberOfRooms)
-                                                .filter(n -> n != null)
+                                                .filter(Objects::nonNull)
                                                 .mapToInt(Integer::intValue)
                                                 .sum());
                 booking.setTotalGuests(
@@ -131,6 +150,12 @@ public class BookingService {
 
                 bookingRepository.save(booking);
 
+                log.info("Booking initiated successfully bookingId={}, bookingReference={}, userId={}, hotelId={}",
+                                booking.getBookingId(),
+                                booking.getBookingReference(),
+                                userId,
+                                request.getHotelId());
+
                 return BookingResponse.builder()
                                 .bookingId(booking.getBookingId())
                                 .bookingReference(booking.getBookingReference())
@@ -141,6 +166,7 @@ public class BookingService {
         }
 
         public void confirmBooking(String bookingReference) {
+                log.debug("Confirming booking bookingReference={}", bookingReference);
                 Booking booking = getBooking(bookingReference);
                 booking.setStatus(BookingStatus.CONFIRMED);
                 booking.setUpdatedAt(LocalDateTime.now());
@@ -148,6 +174,11 @@ public class BookingService {
 
         @Transactional
         public void cancelBooking(String bookingReference,String userId,String userRole) {
+
+                log.info("Cancelling booking bookingReference={} requestedByUserId={} role={}",
+                                bookingReference,
+                                userId,
+                                userRole);
 
                 Booking booking = getBooking(bookingReference);
 
@@ -157,7 +188,7 @@ public class BookingService {
 
                 // ✅ prevent double cancel
                 if (booking.getStatus().equals(BookingStatus.CANCELLED)) {
-                        log.info("Booking already cancelled {}", bookingReference);
+                        log.info("Booking already cancelled bookingReference={}", bookingReference);
                         return;
                 }
 
@@ -165,11 +196,13 @@ public class BookingService {
                 LocalDate today = LocalDate.now();
 
                 if (!booking.getCheckInDate().isAfter(today)) {
+                        log.warn("Rejecting late cancellation bookingReference={}, checkInDate={}, today={}",
+                                        bookingReference,
+                                        booking.getCheckInDate(),
+                                        today);
                         throw new RuntimeException(
                                         "Cannot cancel booking after or on check-in date");
                 }
-
-                log.info("Cancelling booking {}", bookingReference);
 
                 // ✅ release ALL rooms in booking
                 for (BookedRoom bookedRoom : booking.getRooms()) {
@@ -183,7 +216,8 @@ public class BookingService {
                         releaseRequest.setRoomsRequired(bookedRoom.getNumberOfRooms());
                         releaseRequest.setBookingId(booking.getBookingReference());
 
-                        log.info("Releasing room {} count {}",
+                        log.debug("Releasing room during cancel bookingReference={}, roomId={}, roomsRequired={}",
+                                        booking.getBookingReference(),
                                         bookedRoom.getRoomId(),
                                         bookedRoom.getNumberOfRooms());
 
@@ -197,10 +231,11 @@ public class BookingService {
 
                 bookingRepository.save(booking);
 
-                log.info("Booking cancelled successfully {}", bookingReference);
+                log.info("Booking cancelled successfully bookingReference={}", bookingReference);
         }
 
         public Booking getBooking(String bookingReference) {
+                log.debug("Fetching booking by bookingReference={}", bookingReference);
                 return bookingRepository.findByBookingReference(bookingReference)
                                 .orElseThrow(() -> new EntityNotFoundException("Booking not found"));
         }
@@ -225,20 +260,25 @@ public class BookingService {
         @Transactional
         public void releaseAfterPaymentFailure(Long bookingId) {
 
-                System.out.println("Releasing booking with ID " + bookingId + " due to payment failure");
+                log.warn("Releasing booking after payment failure bookingId={}", bookingId);
 
                 Booking booking = bookingRepository.findById(bookingId)
                                 .orElseThrow(() -> new RuntimeException("Booking not found"));
 
                 // ✅ prevent double release
                 if (booking.getStatus() != BookingStatus.INITIATED) {
+                        log.debug("Skipping release after payment failure because booking status is {} for bookingId={}",
+                                        booking.getStatus(),
+                                        bookingId);
                         return;
                 }
 
                 for (BookedRoom room : booking.getRooms()) {
 
-                        System.out.println("Releasing booking " + booking.getBookingReference() + " for room "
-                                        + room.getRoomId() + " due to payment failure");
+                        log.debug("Releasing room after payment failure bookingReference={}, roomId={}, roomsRequired={}",
+                                        booking.getBookingReference(),
+                                        room.getRoomId(),
+                                        room.getNumberOfRooms());
 
                         ConfirmBookingRequest req = new ConfirmBookingRequest(
                                         booking.getHotelId(),
@@ -255,19 +295,28 @@ public class BookingService {
                 booking.setUpdatedAt(LocalDateTime.now());
 
                 bookingRepository.save(booking);
+                log.info("Booking marked failed after payment issue bookingId={}, bookingReference={}",
+                                bookingId,
+                                booking.getBookingReference());
         }
 
         @Transactional
         public void markPaymentSuccess(Long bookingId) {
 
-                log.info("markPaymentSuccess called for {}", bookingId);
+                log.info("markPaymentSuccess called for bookingId={}", bookingId);
 
                 Booking booking = bookingRepository.findById(bookingId)
                                 .orElseThrow();
 
-                System.out.println(booking);
+                log.debug("Loaded booking for payment success bookingId={}, bookingReference={}, status={}",
+                                bookingId,
+                                booking.getBookingReference(),
+                                booking.getStatus());
 
                 if (booking.getStatus() != BookingStatus.INITIATED) {
+                        log.debug("Skipping payment success update because booking status is {} for bookingId={}",
+                                        booking.getStatus(),
+                                        bookingId);
                         return;
                 }
 
@@ -275,9 +324,14 @@ public class BookingService {
                 booking.setUpdatedAt(LocalDateTime.now());
 
                 bookingRepository.save(booking);
+                log.info("Booking marked confirmed after payment bookingId={}, bookingReference={}",
+                                bookingId,
+                                booking.getBookingReference());
         }
 
         public UserBookingsResponse getBookingsForUser(String userId) {
+
+                log.debug("Fetching bookings for userId={}", userId);
 
                 List<Booking> bookings = bookingRepository.findByUserIdOrderByCreatedAtDesc(userId);
 
@@ -293,6 +347,12 @@ public class BookingService {
                                 .filter(b -> b.getCheckOutDate().isBefore(today))
                                 .count();
 
+                log.debug("User booking summary userId={}, total={}, upcoming={}, past={}",
+                                userId,
+                                bookings.size(),
+                                upcoming,
+                                past);
+
                 return UserBookingsResponse.builder()
                                 .bookings(bookings)
                                 .upcomingCount(upcoming)
@@ -302,6 +362,7 @@ public class BookingService {
 
         public List<Booking> getBookingsForManager(String managerId) {
                 // Securely fetch hotels owned by this manager
+                log.debug("Fetching bookings for managerId={}", managerId);
                 List<com.microstay.bookingService.dto.HotelResponse> hotels = hotelClient.getMyHotels(managerId);
 
                 List<String> hotelIds = hotels.stream()
@@ -309,18 +370,23 @@ public class BookingService {
                                 .toList();
 
                 if (hotelIds.isEmpty()) {
+                        log.info("No hotels found for managerId={}", managerId);
                         return List.of();
                 }
 
-                return bookingRepository.findByHotelIdIn(hotelIds);
+                List<Booking> bookings = bookingRepository.findByHotelIdIn(hotelIds);
+                log.debug("Found {} bookings for managerId={} across {} hotels", bookings.size(), managerId, hotelIds.size());
+                return bookings;
         }
 
         public List<Booking> getAllBookings(String status, String hotelId) {
+                log.debug("Fetching all bookings with status={} hotelId={}", status, hotelId);
                 Booking probe = new Booking();
                 if (status != null && !status.isBlank()) {
                         try {
                                 probe.setStatus(BookingStatus.valueOf(status.toUpperCase()));
                         } catch (IllegalArgumentException e) {
+                                log.warn("Ignoring invalid booking status filter status={}", status);
                         }
                 }
                 if (hotelId != null && !hotelId.isBlank()) {
@@ -333,7 +399,9 @@ public class BookingService {
                                 .withMatcher("hotelId", match -> match.exact())
                                 .withMatcher("status", match -> match.exact());
 
-                return bookingRepository.findAll(org.springframework.data.domain.Example.of(probe, matcher));
+                List<Booking> bookings = bookingRepository.findAll(org.springframework.data.domain.Example.of(probe, matcher));
+                log.debug("Found {} bookings for filters status={} hotelId={}", bookings.size(), status, hotelId);
+                return bookings;
         }
 
         /**
@@ -353,6 +421,10 @@ public class BookingService {
         }
 
         private void releaseRooms(String hotelId, ConfirmBookingRequest releaseRequest) {
+                log.debug("Releasing rooms through hotel service hotelId={}, roomId={}, bookingId={}",
+                                hotelId,
+                                releaseRequest.getRoomId(),
+                                releaseRequest.getBookingId());
                 hotelClient.releaseRooms(hotelId, releaseRequest);
         }
 

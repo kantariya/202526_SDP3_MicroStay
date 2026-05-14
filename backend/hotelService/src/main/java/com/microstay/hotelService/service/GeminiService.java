@@ -6,11 +6,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
 
 import java.time.Duration;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class GeminiService {
@@ -24,6 +26,8 @@ public class GeminiService {
   private final WebClient webClient;
 
   public String extractFilters(String userMessage) {
+
+    log.debug("Calling Gemini filter extraction for message length={}", userMessage != null ? userMessage.length() : 0);
 
     String prompt = """
         You are a hotel search assistant.
@@ -119,7 +123,7 @@ public class GeminiService {
         .onStatus(status -> status.isError(), response -> response.bodyToMono(String.class).flatMap(errorBody -> {
           int code = response.statusCode().value();
 
-          System.err.println("Gemini Error (" + code + "): " + errorBody);
+          log.warn("Gemini API returned error code={} body={}", code, errorBody);
 
           return Mono.error(new RuntimeException(code + ":" + errorBody));
         }))
@@ -133,11 +137,11 @@ public class GeminiService {
                     error.getMessage().contains("UNAVAILABLE") ||
                     error.getMessage().contains("429") ||
                     error.getMessage().contains("RESOURCE_EXHAUSTED"))
-                .doBeforeRetry(retry -> System.out.println("Retrying... Attempt: " + (retry.totalRetries() + 1))))
+                .doBeforeRetry(retry -> log.warn("Retrying Gemini request attempt={}", retry.totalRetries() + 1)))
 
         // ✅ Final fallback
         .onErrorResume(e -> {
-          System.err.println("Final Error: " + e.getMessage());
+          log.error("Gemini filter extraction failed: {}", e.getMessage(), e);
           return Mono.just("{}");
         })
 

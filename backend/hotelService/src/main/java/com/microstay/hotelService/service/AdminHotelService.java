@@ -6,7 +6,7 @@ import com.microstay.hotelService.entity.Hotel;
 import com.microstay.hotelService.entity.HotelStatus;
 import com.microstay.hotelService.repository.HotelRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.*;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AdminHotelService {
@@ -29,13 +30,16 @@ public class AdminHotelService {
     // Admin create hotel
     public Hotel createHotel(Hotel hotel) {
 
+        log.info("Admin creating hotel name={}", hotel.getName());
         hotel.setId(null); // ensure new
         hotel.setStatus(HotelStatus.PENDING);
         hotel.setCreatedAt(Instant.now());
         hotel.setUpdatedAt(Instant.now());
         hotel.setRooms(new ArrayList<>());
 
-        return hotelRepository.save(hotel);
+        Hotel saved = hotelRepository.save(hotel);
+        log.info("Admin hotel created hotelId={}, status={}", saved.getId(), saved.getStatus());
+        return saved;
     }
 
     // List hotels with optional filters
@@ -48,6 +52,9 @@ public class AdminHotelService {
             String sortBy,
             String direction
     ) {
+
+        log.debug("Admin listing hotels statuses={}, managerId={}, nameSearch={}, page={}, size={}, sortBy={}, direction={}",
+                statuses, managerId, nameSearch, page, size, sortBy, direction);
 
         Query query = new Query();
         List<Criteria> criteriaList = new ArrayList<>();
@@ -98,12 +105,14 @@ public class AdminHotelService {
                 Hotel.class
         );
 
+        log.debug("Admin listing returned {} hotels", hotels.size());
         return new PageImpl<>(hotels, pageable, total);
     }
 
     // Change hotel status
     public Hotel changeStatus(String hotelId, HotelStatus status) {
 
+        log.info("Changing hotel status hotelId={} status={}", hotelId, status);
         Hotel hotel = hotelRepository.findById(hotelId)
                 .orElseThrow(() -> new RuntimeException("Hotel not found"));
 
@@ -116,12 +125,12 @@ public class AdminHotelService {
     // Assign manager
     public Hotel assignManager(String hotelId, String managerId) {
 
+        log.info("Assigning manager to hotelId={} managerId={}", hotelId, managerId);
         Hotel hotel = hotelRepository.findById(hotelId)
                 .orElseThrow(() -> new RuntimeException("Hotel not found"));
 
-        System.out.println("Assigning managerId: " + managerId + " to hotel: " + hotel.getName());
-
         if (managerId == null || managerId.isBlank()) {
+            log.debug("Clearing manager assignment for hotelId={}", hotelId);
             hotel.setManagerId(null);
         } else {
             // ✅ VALIDATE MANAGER ROLE
@@ -133,16 +142,21 @@ public class AdminHotelService {
                 }
                 hotel.setManagerId(managerId);
             } catch (NumberFormatException e) {
+                log.warn("Invalid managerId format hotelId={} managerId={}", hotelId, managerId, e);
                 throw new RuntimeException("Invalid Manager ID format");
             } catch (Exception e) {
                 if ("INVALID_MANAGER_ROLE".equals(e.getMessage())) {
+                    log.warn("Selected user is not a hotel manager hotelId={} managerId={}", hotelId, managerId);
                     throw new RuntimeException("The selected user does not have MANAGER role");
                 }
+                log.error("Failed to validate manager for hotelId={} managerId={}", hotelId, managerId, e);
                 throw new RuntimeException("Failed to validate manager: " + e.getMessage());
             }
         }
         hotel.setUpdatedAt(Instant.now());
 
-        return hotelRepository.save(hotel);
+        Hotel saved = hotelRepository.save(hotel);
+        log.info("Manager assignment updated hotelId={} managerId={}", saved.getId(), saved.getManagerId());
+        return saved;
     }
 }

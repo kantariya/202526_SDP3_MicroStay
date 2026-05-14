@@ -88,11 +88,8 @@ const SearchPage = () => {
                 params.append('sortDirection', filters.sortDirection);
             }
 
-            console.log("Fetching hotels with params:", params.toString());
 
             const response = await api.get(`/hotels/search?${params.toString()}`);
-
-            console.log("Search response:", response.data);
 
             // Handle paginated response
             if (response.data.content) {

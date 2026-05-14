@@ -1,5 +1,6 @@
 package com.microstay.bookingService.exception;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -8,22 +9,31 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
 
+import jakarta.persistence.EntityNotFoundException;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<Map<String, Object>> handleResponseStatus(ResponseStatusException ex) {
-        Map<String, Object> error = new HashMap<>();
-        error.put("timestamp", LocalDateTime.now());
-        error.put("status", ex.getStatusCode().value());
-        error.put("error", ex.getStatusCode().toString());
-        error.put("message", ex.getReason() != null ? ex.getReason() : "An error occurred");
-        error.put("path", "");
-        return ResponseEntity.status(ex.getStatusCode()).body(error);
+        log.warn("Request failed in booking service with status={} reason={}", ex.getStatusCode(), ex.getReason());
+        return buildError((HttpStatus) ex.getStatusCode(), ex.getStatusCode().toString(), ex.getReason() != null ? ex.getReason() : "An error occurred", null);
+    }
+
+    @ExceptionHandler(EntityNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleNotFound(EntityNotFoundException ex) {
+        log.warn("Entity not found in booking service: {}", ex.getMessage());
+        return buildError(HttpStatus.NOT_FOUND, "Not Found", ex.getMessage(), null);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
+        log.warn("Illegal argument in booking service: {}", ex.getMessage());
+        return buildError(HttpStatus.BAD_REQUEST, "Bad Request", ex.getMessage(), null);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -35,37 +45,32 @@ public class GlobalExceptionHandler {
             errors.put(fieldName, errorMessage);
         });
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("timestamp", LocalDateTime.now());
-        response.put("status", HttpStatus.BAD_REQUEST.value());
-        response.put("error", "Validation Failed");
-        response.put("message", "Invalid input data");
-        response.put("errors", errors);
-        response.put("path", "");
-
-        return ResponseEntity.badRequest().body(response);
+        log.warn("Validation failed in booking service with {} field errors", errors.size());
+        return buildError(HttpStatus.BAD_REQUEST, "Validation Failed", "Invalid input data", errors);
     }
 
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<Map<String, Object>> handleRuntimeException(RuntimeException ex) {
-        Map<String, Object> error = new HashMap<>();
-        error.put("timestamp", LocalDateTime.now());
-        error.put("status", HttpStatus.BAD_REQUEST.value());
-        error.put("error", "Bad Request");
-        error.put("message", ex.getMessage() != null ? ex.getMessage() : "An error occurred");
-        error.put("path", "");
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+        log.error("Runtime exception in booking service", ex);
+        return buildError(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error", ex.getMessage() != null ? ex.getMessage() : "An unexpected error occurred", null);
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGenericException(Exception ex) {
-        Map<String, Object> error = new HashMap<>();
-        error.put("timestamp", LocalDateTime.now());
-        error.put("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
-        error.put("error", "Internal Server Error");
-        error.put("message", "An unexpected error occurred");
-        error.put("path", "");
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+        log.error("Unhandled exception in booking service", ex);
+        return buildError(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error", "An unexpected error occurred", null);
+    }
+
+    private ResponseEntity<Map<String, Object>> buildError(HttpStatus status, String error, String message, Map<String, ?> details) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("timestamp", LocalDateTime.now());
+        response.put("status", status.value());
+        response.put("error", error);
+        response.put("message", message);
+        response.put("path", "");
+        if (details != null) {
+            response.put(details.containsKey("errors") ? "errors" : "details", details);
+        }
+        return ResponseEntity.status(status).body(response);
     }
 }
-

@@ -1,5 +1,6 @@
-package com.microstay.hotelService.exception;
+package com.microstay.paymentService.exception;
 
+import jakarta.persistence.EntityNotFoundException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -11,7 +12,6 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
 
-
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
@@ -22,32 +22,32 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<Map<String, Object>> handleAuthentication(AuthenticationException ex) {
-        log.warn("Authentication failed in hotel service: {}", ex.getMessage());
+        log.warn("Authentication failed in payment service: {}", ex.getMessage());
         return buildError(HttpStatus.UNAUTHORIZED, "Unauthorized", "Authentication failed", null);
     }
 
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<Map<String, Object>> handleAccessDenied(AccessDeniedException ex) {
-        log.warn("Access denied in hotel service: {}", ex.getMessage());
+        log.warn("Access denied in payment service: {}", ex.getMessage());
         return buildError(HttpStatus.FORBIDDEN, "Forbidden", ex.getMessage(), null);
     }
 
-    @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<Map<String, Object>> handleResourceNotFound(ResourceNotFoundException ex) {
-        log.warn("Resource not found: {}", ex.getMessage());
-        return buildError(HttpStatus.NOT_FOUND, "Resource Not Found", ex.getMessage(), null);
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<Map<String, Object>> handleResponseStatus(ResponseStatusException ex) {
+        log.warn("Request failed in payment service with status={} reason={}", ex.getStatusCode(), ex.getReason());
+        return buildError((HttpStatus) ex.getStatusCode(), ex.getStatusCode().toString(), ex.getReason() != null ? ex.getReason() : "An error occurred", null);
     }
 
-    @ExceptionHandler(BadRequestException.class)
-    public ResponseEntity<Map<String, Object>> handleBadRequest(BadRequestException ex) {
-        log.warn("Bad request in hotel service: {}", ex.getMessage());
+    @ExceptionHandler(EntityNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleNotFound(EntityNotFoundException ex) {
+        log.warn("Entity not found in payment service: {}", ex.getMessage());
+        return buildError(HttpStatus.NOT_FOUND, "Not Found", ex.getMessage(), null);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
+        log.warn("Illegal argument in payment service: {}", ex.getMessage());
         return buildError(HttpStatus.BAD_REQUEST, "Bad Request", ex.getMessage(), null);
-    }
-
-    @ExceptionHandler(UnauthorizedException.class)
-    public ResponseEntity<Map<String, Object>> handleUnauthorized(UnauthorizedException ex) {
-        log.warn("Unauthorized access in hotel service: {}", ex.getMessage());
-        return buildError(HttpStatus.FORBIDDEN, "Unauthorized", ex.getMessage(), null);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -59,31 +59,19 @@ public class GlobalExceptionHandler {
             errors.put(fieldName, errorMessage);
         });
 
-        log.warn("Validation failed in hotel service with {} field errors", errors.size());
+        log.warn("Validation failed in payment service with {} field errors", errors.size());
         return buildError(HttpStatus.BAD_REQUEST, "Validation Failed", "Invalid input data", errors);
-    }
-
-    @ExceptionHandler(ResponseStatusException.class)
-    public ResponseEntity<Map<String, Object>> handleResponseStatus(ResponseStatusException ex) {
-        log.warn("Request failed in hotel service with status={} reason={}", ex.getStatusCode(), ex.getReason());
-        return buildError((HttpStatus) ex.getStatusCode(), ex.getStatusCode().toString(), ex.getReason() != null ? ex.getReason() : "An error occurred", null);
-    }
-
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
-        log.warn("Illegal argument in hotel service: {}", ex.getMessage());
-        return buildError(HttpStatus.BAD_REQUEST, "Invalid Argument", ex.getMessage(), null);
     }
 
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<Map<String, Object>> handleRuntimeException(RuntimeException ex) {
-        log.error("Runtime exception in hotel service", ex);
+        log.error("Runtime exception in payment service", ex);
         return buildError(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error", ex.getMessage() != null ? ex.getMessage() : "An unexpected error occurred", null);
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGenericException(Exception ex) {
-        log.error("Unhandled exception in hotel service", ex);
+        log.error("Unhandled exception in payment service", ex);
         return buildError(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error", "An unexpected error occurred", null);
     }
 
@@ -100,3 +88,4 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(status).body(response);
     }
 }
+

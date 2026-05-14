@@ -8,6 +8,7 @@ const Rooms = () => {
     const [rooms, setRooms] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
+    const [amenitiesInput, setAmenitiesInput] = useState('');
 
     // Form State
     const [formData, setFormData] = useState({
@@ -42,7 +43,6 @@ const Rooms = () => {
         try {
             // Using public endpoint for reading as strictly no GET /manager/hotels/{id}/rooms listed
             const res = await api.get(`/hotels/${id}/rooms`);
-            console.log("Fetched rooms:", res.data);
             setRooms(res.data);
         } catch (error) {
             console.error("Error fetching rooms:", error);
@@ -74,6 +74,7 @@ const Rooms = () => {
                 images: room.images || [],
                 active: room.active !== undefined ? room.active : true
             });
+            setAmenitiesInput((room.amenities || []).join(', '));
         } else {
             setEditingRoomId(null);
             setFormData({
@@ -182,7 +183,7 @@ const Rooms = () => {
                             {/* Room Header with Image */}
                             {room.images && room.images.length > 0 ? (
                                 <div className="h-48 bg-slate-700 overflow-hidden">
-                                    <img src={room.images[1]} alt={room.roomType} className="w-full h-full object-cover" />
+                                    <img src={room.images[0]} alt={room.roomType} className="w-full h-full object-cover" />
                                 </div>
                             ) : (
                                 <div className="h-48 bg-gradient-to-br from-indigo-500/20 to-purple-500/20 flex items-center justify-center">
@@ -254,15 +255,15 @@ const Rooms = () => {
                                     </div>
 
                                     <div className="flex gap-2">
-                                        <button 
-                                            onClick={() => handleOpenModal(room)} 
+                                        <button
+                                            onClick={() => handleOpenModal(room)}
                                             className="p-2 text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors"
                                             title="Edit Room"
                                         >
                                             <Edit2 size={16} />
                                         </button>
-                                        <button 
-                                            onClick={() => handleDelete(room.roomId)} 
+                                        <button
+                                            onClick={() => handleDelete(room.roomId)}
                                             className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
                                             title="Delete Room"
                                         >
@@ -445,13 +446,23 @@ const Rooms = () => {
                                 <input
                                     type="text"
                                     placeholder="e.g., WiFi, TV, Air Conditioning, Mini Bar"
-                                    value={formData.amenities.join(', ')}
-                                    onChange={e => setFormData({ 
-                                        ...formData, 
-                                        amenities: e.target.value.split(',').map(a => a.trim()).filter(a => a)
+                                    value={amenitiesInput}
+                                    onChange={e => {
+                                        const value = e.target.value;
+                                        setAmenitiesInput(value);
+
+                                        setFormData({
+                                            ...formData,
+                                            amenities: value.split(',').map(a => a.trim()).filter(a => a)
+                                        });
+                                    }}
+                                    onBlur={() => setFormData({
+                                        ...formData,
+                                        amenities: amenitiesInput.split(',').map(a => a.trim()).filter(a => a)
                                     })}
                                     className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
                                 />
+
                             </div>
 
                             {/* Images */}
@@ -463,8 +474,8 @@ const Rooms = () => {
                                     type="text"
                                     placeholder="https://example.com/image1.jpg, https://example.com/image2.jpg"
                                     value={formData.images.join(', ')}
-                                    onChange={e => setFormData({ 
-                                        ...formData, 
+                                    onChange={e => setFormData({
+                                        ...formData,
                                         images: e.target.value.split(',').map(i => i.trim()).filter(i => i)
                                     })}
                                     className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
@@ -487,15 +498,15 @@ const Rooms = () => {
 
                             {/* Action Buttons */}
                             <div className="flex justify-end gap-3 pt-4 border-t border-slate-700">
-                                <button 
-                                    type="button" 
-                                    onClick={() => setShowModal(false)} 
+                                <button
+                                    type="button"
+                                    onClick={() => setShowModal(false)}
                                     className="px-5 py-2.5 text-slate-300 hover:bg-slate-700 rounded-lg font-medium transition-colors"
                                 >
                                     Cancel
                                 </button>
-                                <button 
-                                    type="submit" 
+                                <button
+                                    type="submit"
                                     className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold flex items-center gap-2 transition-colors shadow-lg shadow-emerald-500/20"
                                 >
                                     <Save size={18} /> {editingRoomId ? 'Update Room' : 'Save Room'}

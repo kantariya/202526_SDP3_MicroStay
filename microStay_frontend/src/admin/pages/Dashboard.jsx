@@ -65,14 +65,14 @@ const AdminDashboard = () => {
                 ))}
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 h-64 flex items-center justify-center text-slate-500">
                     System Overview (Coming Soon)
                 </div>
                 <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 h-64 flex items-center justify-center text-slate-500">
                     User Growth Chart (Coming Soon)
                 </div>
-            </div>
+            </div> */}
         </div>
     );
 };

@@ -1,12 +1,13 @@
 package com.microstay.apiGateway.config;
 
 import com.microstay.apiGateway.util.JwtUtils;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.cloud.gateway.filter.ratelimit.KeyResolver;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.cloud.gateway.filter.ratelimit.KeyResolver;
-import org.springframework.http.HttpHeaders;
 import reactor.core.publisher.Mono;
 
+@Slf4j
 @Configuration
 public class RateLimiterConfig {
 
@@ -23,7 +24,7 @@ public class RateLimiterConfig {
                     String token = authHeader.substring(7);
                     String userId = jwtUtils.extractUserId(token);
                     if (userId != null) {
-                        System.out.println("RateLimiter: Identified user " + userId);
+                        log.debug("Rate limiter identified authenticated user id={}", userId);
                         return Mono.just("user:" + userId);
                     }
                 }
@@ -34,8 +35,9 @@ public class RateLimiterConfig {
                         .getFirst("X-Forwarded-For");
 
                 if (ip != null && !ip.isEmpty()) {
-                    System.out.println("RateLimiter: Identified IP " + ip);
-                    return Mono.just("ip:" + ip.split(",")[0]); // first IP
+                    String resolvedIp = ip.split(",")[0];
+                    log.debug("Rate limiter identified forwarded client ip={}", resolvedIp);
+                    return Mono.just("ip:" + resolvedIp);
                 }
 
                 // 🖥️ Fallback → direct client IP (local/dev)
@@ -44,11 +46,11 @@ public class RateLimiterConfig {
                         .getAddress()
                         .getHostAddress();
 
-                System.out.println("RateLimiter: Fallback IP " + ip);
+                log.debug("Rate limiter using fallback client ip={}", ip);
                 return Mono.just("ip:" + ip);
 
             } catch (Exception e) {
-                System.out.println("RateLimiter: Error identifying user/IP - " + e.getMessage());
+                log.warn("Rate limiter could not identify user or IP, falling back to anonymous key", e);
                 return Mono.just("anonymous");
             }
         };

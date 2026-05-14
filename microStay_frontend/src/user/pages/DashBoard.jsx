@@ -45,39 +45,44 @@ const Dashboard = () => {
 
   // --- Location Search Logic ---
   const loadLocationOptions = (inputValue, callback) => {
-    if (!inputValue || inputValue.length < 1) { // Reduced threshold for better immediate feedback
-      // Show some popular cities by default (combined with country)
-      const popularCities = City.getAllCities()
-        .slice(0, 10)
-        .map(city => {
-          const country = countryMap[city.countryCode] || { name: city.countryCode };
-          return {
-            value: city.name,
-            label: `${city.name}, ${country.name}`,
-            type: 'city'
-          };
-        });
-      callback(popularCities);
-      return;
-    }
-
-    const searchLower = inputValue.toLowerCase();
-
-    // Filter Cities and combine with Country Name
-    const filteredCities = City.getAllCities()
-      .filter(city => city.name.toLowerCase().includes(searchLower))
-      .slice(0, 100) // Performance limit
+  if (!inputValue || inputValue.length < 1) {
+    const popularCities = City.getAllCities()
+      .slice(0, 10)
       .map(city => {
         const country = countryMap[city.countryCode] || { name: city.countryCode };
+
+        const cityName = city.name.trim().split(/\s+/)[0];
+
         return {
-          value: city.name,
-          label: `${city.name}, ${country.name}`,
+          value: cityName,
+          label: `${cityName}, ${country.name}`,
           type: 'city'
         };
       });
 
-    callback(filteredCities);
-  };
+    callback(popularCities);
+    return;
+  }
+
+  const searchLower = inputValue.toLowerCase();
+
+  const filteredCities = City.getAllCities()
+    .filter(city => city.name.toLowerCase().includes(searchLower))
+    .slice(0, 100)
+    .map(city => {
+      const country = countryMap[city.countryCode] || { name: city.countryCode };
+
+      const cityName = city.name.trim().split(/\s+/)[0];
+
+      return {
+        value: cityName,
+        label: `${cityName}, ${country.name}`,
+        type: 'city'
+      };
+    });
+
+  callback(filteredCities);
+};
 
   const selectStyles = {
     control: (base) => ({

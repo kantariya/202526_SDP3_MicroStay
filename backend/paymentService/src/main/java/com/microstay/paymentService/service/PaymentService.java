@@ -33,9 +33,11 @@ public class PaymentService {
     public PaymentResponse createMockPayment(PaymentRequest request, String userIdHeader) {
 
         Long bookingId = request.getBookingId(); // ✅ ensure Long type
+        log.info("Creating mock payment for bookingId={}, userId={}", bookingId, userIdHeader);
 
         // ✅ prevent duplicate payment per booking
         paymentRepository.findByBookingId(bookingId).ifPresent(p -> {
+            log.warn("Duplicate payment attempt detected for bookingId={}", bookingId);
             throw new ResponseStatusException(CONFLICT, "Payment already exists for this booking");
         });
 
@@ -44,6 +46,7 @@ public class PaymentService {
         try {
             booking = bookingServiceClient.getBookingForPayment(bookingId);
         } catch (Exception ex) {
+            log.warn("Unable to load booking snapshot for payment bookingId={}", bookingId, ex);
             throw new ResponseStatusException(NOT_FOUND, "Booking not found");
         }
 
@@ -51,6 +54,10 @@ public class PaymentService {
         if (userIdHeader != null && !userIdHeader.isBlank()
                 && booking.getUserId() != null
                 && !userIdHeader.equals(booking.getUserId())) {
+            log.warn("Payment ownership mismatch bookingId={}, requesterUserId={}, bookingUserId={}",
+                    bookingId,
+                    userIdHeader,
+                    booking.getUserId());
             throw new ResponseStatusException(BAD_REQUEST, "Booking does not belong to this user");
         }
 
@@ -76,7 +83,7 @@ public class PaymentService {
             double expected = booking.getTotalAmount();
             double actual = request.getAmount();
             if (Math.abs(expected - actual) > 0.01) {
-                System.out.println("Amount mismatch: expected " + expected + " but got " + actual);
+                log.warn("Amount mismatch for bookingId={}, expected={}, actual={}", bookingId, expected, actual);
                 throw new ResponseStatusException(BAD_REQUEST, "Amount mismatch for booking");
             }
         }
@@ -99,16 +106,16 @@ public class PaymentService {
                 .build();
 
         paymentRepository.save(payment);
+        log.info("Mock payment persisted paymentId={}, bookingId={}, status={}", payment.getPaymentId(), bookingId, status);
 
         // ✅ notify booking service (THIS IS THE FIX)
         try {
-            System.out.println("Payment " + status + " for booking " + bookingId + ", notifying booking service");
+            log.info("Notifying booking service after payment result bookingId={}, status={}", bookingId, status);
 
             if (status == PaymentStatus.SUCCESS) {
                 markPaymentSuccessWithResilience(bookingId);
             } else {
-                System.out
-                        .println("Payment failed for booking " + bookingId + ", notifying booking service to release");
+                log.warn("Notifying booking service to release inventory after failed payment bookingId={}", bookingId);
                 releaseAfterPaymentFailureWithResilience(bookingId);
             }
 
@@ -121,6 +128,7 @@ public class PaymentService {
     }
 
     public PaymentResponse getById(Long paymentId, String userId) {
+        log.debug("Fetching payment by paymentId={}, userId={}", paymentId, userId);
         Payment payment = paymentRepository.findById(paymentId)
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Payment not found"));
 
@@ -130,6 +138,7 @@ public class PaymentService {
     }
 
     public PaymentResponse getByBookingId(Long bookingId, String userId) {
+        log.debug("Fetching payment by bookingId={}, userId={}", bookingId, userId);
         Payment payment = paymentRepository.findByBookingId(bookingId)
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Payment not found for booking"));
 
@@ -155,7 +164,7 @@ public class PaymentService {
         } catch (Exception e) {
             // If booking service down or booking not found, determining ownership is hard.
             // Fail safe:
-            log.error("Could not verify booking ownership for payment lookup", e);
+            log.error("Could not verify booking ownership for payment lookup bookingId={}, userId={}", bookingId, userId, e);
             throw new ResponseStatusException(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR,
                     "Verification failed");
         }
@@ -176,10 +185,12 @@ public class PaymentService {
     }
 
     public java.util.List<PaymentResponse> getPaymentsForUser(String userId) {
+        log.debug("Fetching payments for userId={}", userId);
         // 1. Get user bookings
         com.microstay.paymentService.dto.UserBookingsResponse response = bookingServiceClient.getUserBookings(userId);
 
         if (response == null || response.getBookings() == null || response.getBookings().isEmpty()) {
+            log.info("No bookings found for userId={} while fetching payments", userId);
             return java.util.List.of();
         }
 
@@ -187,17 +198,22 @@ public class PaymentService {
                 .map(com.microstay.paymentService.dto.BookingPaymentInfoResponse::getBookingId)
                 .toList();
 
-        return paymentRepository.findByBookingIdIn(bookingIds).stream()
+        java.util.List<PaymentResponse> payments = paymentRepository.findByBookingIdIn(bookingIds).stream()
                 .map(this::toResponse)
                 .toList();
+
+        log.debug("Found {} payments for userId={}", payments.size(), userId);
+        return payments;
     }
 
     public java.util.List<PaymentResponse> getPaymentsForManager(String userId) {
+        log.debug("Fetching payments for managerId={}", userId);
         // 1. Get manager bookings (which are already filtered by owned hotels)
         java.util.List<com.microstay.paymentService.dto.BookingPaymentInfoResponse> bookings = bookingServiceClient
                 .getManagerBookings(userId);
 
         if (bookings == null || bookings.isEmpty()) {
+            log.info("No bookings found for managerId={} while fetching payments", userId);
             return java.util.List.of();
         }
 
@@ -205,16 +221,21 @@ public class PaymentService {
                 .map(com.microstay.paymentService.dto.BookingPaymentInfoResponse::getBookingId)
                 .toList();
 
-        return paymentRepository.findByBookingIdIn(bookingIds).stream()
+        java.util.List<PaymentResponse> payments = paymentRepository.findByBookingIdIn(bookingIds).stream()
                 .map(this::toResponse)
                 .toList();
+
+        log.debug("Found {} payments for managerId={}", payments.size(), userId);
+        return payments;
     }
 
     private void markPaymentSuccessWithResilience(Long bookingId) {
+        log.debug("Calling booking service to mark payment success bookingId={}", bookingId);
         bookingServiceClient.markPaymentSuccess(bookingId);
     }
 
     private void releaseAfterPaymentFailureWithResilience(Long bookingId) {
+        log.debug("Calling booking service to release booking after payment failure bookingId={}", bookingId);
         bookingServiceClient.releaseAfterPaymentFailure(bookingId);
     }
 }

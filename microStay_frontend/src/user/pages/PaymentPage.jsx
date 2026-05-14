@@ -39,11 +39,11 @@ const PaymentPage = () => {
                 guestDetails: guestDetails // Array of {fullName, age, aadharNumber}
             };
 
-            console.log('Initiating booking with:', initiateBookingRequest);
+            
             const bookingRes = await api.post('/bookings/initiate', initiateBookingRequest);
             const booking = bookingRes.data;
 
-            console.log('Booking initiated:', booking);
+        
 
             // 2. Process Payment
             const paymentRequest = {
@@ -54,10 +54,10 @@ const PaymentPage = () => {
                 mockResult: mockResult // SUCCESS or FAILED
             };
 
-            console.log('Processing payment with:', paymentRequest);
+            
             const paymentRes = await api.post('/payments', paymentRequest);
 
-            console.log('Payment response:', paymentRes.data);
+            
 
             // 3. Navigate to Success Page
             navigate('/booking/success', { state: { booking, payment: paymentRes.data } });

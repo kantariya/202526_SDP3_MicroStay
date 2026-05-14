@@ -29,7 +29,6 @@ const HotelApprovals = () => {
                 }
             });
 
-            console.log("Fetched pending hotels:", response.data);
 
             setPendingHotels(response.data.content);
             setTotalPages(response.data.totalPages);

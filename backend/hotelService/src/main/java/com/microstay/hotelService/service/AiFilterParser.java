@@ -5,8 +5,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.microstay.hotelService.dto.HotelSearchFilter;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AiFilterParser {
@@ -19,7 +21,7 @@ public class AiFilterParser {
         try {
 
             String aiResponse = geminiService.extractFilters(message);
-            System.out.println("Gemini RAW Response: " + aiResponse);
+            log.debug("Received Gemini raw response length={}", aiResponse != null ? aiResponse.length() : 0);
 
             if (aiResponse == null || aiResponse.equals("{}")) {
                 return new HotelSearchFilter();
@@ -28,14 +30,14 @@ public class AiFilterParser {
             JsonNode root = objectMapper.readTree(aiResponse);
 
             if (root.has("error")) {
-                System.err.println("Gemini API returned error: " + root.path("error").path("message").asText());
+                log.warn("Gemini API returned error: {}", root.path("error").path("message").asText());
                 return new HotelSearchFilter();
             }
 
             JsonNode candidates = root.path("candidates");
 
             if (!candidates.isArray() || candidates.isEmpty()) {
-                System.err.println("Gemini returned no candidates.");
+                log.warn("Gemini returned no candidates for message parsing");
                 return new HotelSearchFilter();
             }
 
@@ -46,7 +48,7 @@ public class AiFilterParser {
                     .path("text");
 
             if (textNode == null || textNode.isMissingNode()) {
-                System.err.println("Gemini returned empty text.");
+                log.warn("Gemini returned empty text for parsed filters");
                 return new HotelSearchFilter();
             }
 
@@ -58,13 +60,13 @@ public class AiFilterParser {
                     .replace("```", "")
                     .trim();
 
-            System.out.println("Parsed JSON: " + jsonText);
+            log.debug("Parsed Gemini filter JSON: {}", jsonText);
 
             return objectMapper.readValue(jsonText, HotelSearchFilter.class);
 
         } catch (Exception e) {
 
-            e.printStackTrace();
+            log.error("Failed to parse Gemini filters", e);
 
             // return empty filters instead of crashing API
             return new HotelSearchFilter();
