@@ -12,10 +12,12 @@ import com.microstay.contract.hotelContract.dto.AvailabilityRequest;
 import com.microstay.contract.hotelContract.dto.AvailabilityResponse;
 import com.microstay.contract.hotelContract.dto.ConfirmBookingRequest;
 import com.microstay.contract.hotelContract.dto.RoomType;
+import feign.FeignException;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -37,133 +39,108 @@ public class BookingService {
         private final HotelServiceClient hotelClient;
 
         public BookingResponse initiateBooking(
-                        InitiateBookingRequest request,
-                        String userId) {
-                log.info("Initiating booking for userId={}, hotelId={}, rooms={}",
-                                userId,
-                                request.getHotelId(),
-                                request.getRooms() != null ? request.getRooms().size() : 0);
+                InitiateBookingRequest request,
+                String userId) {
+                log.info("Initiating booking process for userId={}, hotelId={}", userId, request.getHotelId());
 
+                // 1️⃣ Validate input dates
                 if (request.getCheckInDate() != null
-                                && request.getCheckOutDate() != null
-                                && !request.getCheckOutDate().isAfter(request.getCheckInDate())) {
+                        && request.getCheckOutDate() != null
+                        && !request.getCheckOutDate().isAfter(request.getCheckInDate())) {
                         throw new ResponseStatusException(BAD_REQUEST, "checkOutDate must be after checkInDate");
                 }
 
-                // Assume single room type for now
-                BookedRoomRequest room = request.getRooms().get(0);
+                // Extract the requested room details (Assuming single room type for now)
+                BookedRoomRequest requestedRoom = request.getRooms().get(0);
 
-                // 1️⃣ Build availability request
-                AvailabilityRequest availabilityRequest = AvailabilityRequestMapper.fromInitiateRequest(
-                                request,
-                                room.getRoomId(),
-                                room.getNumberOfRooms());
-
-                // 2️⃣ Check availability
-                AvailabilityResponse availability = hotelClient.checkAvailability(
-                                request.getHotelId(),
-                                availabilityRequest);
-
-                log.debug("Availability check completed for hotelId={}, roomId={}, available={}, totalAmount={}, message={}",
-                                request.getHotelId(),
-                                room.getRoomId(),
-                                availability != null && availability.isAvailable(),
-                                availability != null ? availability.getTotalAmount() : null,
-                                availability != null ? availability.getMessage() : null);
-
-                if (availability == null || !availability.isAvailable()) {
-                        log.warn("Booking rejected due to availability mismatch for hotelId={}, roomId={}",
-                                        request.getHotelId(),
-                                        room.getRoomId());
-                        throw new IllegalStateException(availability != null ? availability.getMessage() : "Hotel availability service returned no response");
-                }
-
-                // 3️⃣ Generate booking reference EARLY (important)
+                // 2️⃣ Generate the unique booking reference EARLY
                 String bookingReference = UUID.randomUUID().toString();
 
-                // 4️⃣ Build confirm booking request
+                // 3️⃣ Construct the reservation request payload
                 ConfirmBookingRequest confirmRequest = new ConfirmBookingRequest();
                 confirmRequest.setHotelId(request.getHotelId());
-                confirmRequest.setRoomId(room.getRoomId());
+                confirmRequest.setRoomId(requestedRoom.getRoomId());
                 confirmRequest.setCheckInDate(request.getCheckInDate());
                 confirmRequest.setCheckOutDate(request.getCheckOutDate());
-                confirmRequest.setRoomsRequired(room.getNumberOfRooms());
+                confirmRequest.setRoomsRequired(requestedRoom.getNumberOfRooms());
                 confirmRequest.setBookingId(bookingReference);
 
-                log.debug("Reserving inventory for bookingReference={}, hotelId={}, roomId={}, roomsRequired={}",
-                                bookingReference,
-                                request.getHotelId(),
-                                room.getRoomId(),
-                                room.getNumberOfRooms());
+                log.debug("Attempting to atomically reserve inventory for reference={}", bookingReference);
 
-                // 5️⃣ Reserve rooms (inventory decrement)
-                hotelClient.reserveRooms(
-                                request.getHotelId(),
-                                confirmRequest);
+                // 4️⃣ Execute atomic Check-and-Set and capture pricing directly from the response!
 
-                // 6️⃣ Create booking entity
+                AvailabilityResponse availability;
+                try {
+                        // This single network call now safely verifies, locks, updates, and fetches price.
+                        availability = hotelClient.reserveRooms(request.getHotelId(), confirmRequest);
+                } catch (FeignException.Conflict ex) {
+                        // Catches HTTP 409 Conflict when rooms run out or @Version mismatch drops the database transaction
+                        log.warn("Booking conflict detected for hotelId={}, roomId={}. Room fully booked.",
+                                request.getHotelId(), requestedRoom.getRoomId());
+                        throw new ResponseStatusException(HttpStatus.CONFLICT,
+                                "The selected room type is no longer available for these dates. Please try again.");
+                } catch (Exception ex) {
+                        log.error("Failed to connect or reserve rooms via hotelClient", ex);
+                        throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                                "Inventory service is currently unavailable. Please try again later.");
+                }
+
+
+                // 5️⃣ Create and persist booking entry safely using data returned from your inventory service
                 Booking booking = Booking.builder()
-                                .bookingReference(bookingReference)
-                                .userId(userId)
-                                .hotelId(request.getHotelId())
-                                .hotelName(
-                                                request.getHotelName() != null && !request.getHotelName().isBlank()
-                                                                ? request.getHotelName()
-                                                                : "UNKNOWN")
-                                .checkInDate(request.getCheckInDate())
-                                .checkOutDate(request.getCheckOutDate())
-                                .guestDetails(maskAadharNumbers(request.getGuestDetails()))
-                                .status(BookingStatus.INITIATED)
-                                .currency(
-                                                availability.getCurrency() != null
-                                                                ? availability.getCurrency()
-                                                                : "INR")
-                                .totalAmount(
-                                                availability.getTotalAmount() != null
-                                                                ? availability.getTotalAmount()
-                                                                : 0.0)
-                                .createdAt(LocalDateTime.now())
-                                .build();
+                        .bookingReference(bookingReference)
+                        .userId(userId)
+                        .hotelId(request.getHotelId())
+                        .hotelName(
+                                request.getHotelName() != null && !request.getHotelName().isBlank()
+                                        ? request.getHotelName()
+                                        : "UNKNOWN")
+                        .checkInDate(request.getCheckInDate())
+                        .checkOutDate(request.getCheckOutDate())
+                        .guestDetails(maskAadharNumbers(request.getGuestDetails()))
+                        .status(BookingStatus.INITIATED)
+                        .currency(availability.getCurrency() != null ? availability.getCurrency() : "INR")
+                        .totalAmount(availability.getTotalAmount() != null ? availability.getTotalAmount() : 0.0)
+                        .createdAt(LocalDateTime.now())
+                        .build();
 
                 List<BookedRoom> bookedRooms = request.getRooms().stream()
-                                .map(r -> mapToBookedRoom(r, booking))
-                                .toList();
+                        .map(r -> mapToBookedRoom(r, booking))
+                        .toList();
 
                 booking.setRooms(bookedRooms);
                 booking.setTotalRooms(
-                                bookedRooms.stream()
-                                                .map(BookedRoom::getNumberOfRooms)
-                                                .filter(Objects::nonNull)
-                                                .mapToInt(Integer::intValue)
-                                                .sum());
+                        bookedRooms.stream()
+                                .map(BookedRoom::getNumberOfRooms)
+                                .filter(Objects::nonNull)
+                                .mapToInt(Integer::intValue)
+                                .sum());
                 booking.setTotalGuests(
-                                bookedRooms.stream()
-                                                .mapToInt(r -> {
-                                                        int adults = r.getAdults() != null ? r.getAdults() : 0;
-                                                        int children = r.getChildren() != null ? r.getChildren() : 0;
-                                                        int rooms = r.getNumberOfRooms() != null ? r.getNumberOfRooms()
-                                                                        : 0;
-                                                        return (adults + children) * rooms;
-                                                })
-                                                .sum());
+                        bookedRooms.stream()
+                                .mapToInt(r -> {
+                                        int adults = r.getAdults() != null ? r.getAdults() : 0;
+                                        int children = r.getChildren() != null ? r.getChildren() : 0;
+                                        int rooms = r.getNumberOfRooms() != null ? r.getNumberOfRooms()
+                                                : 0;
+                                        return (adults + children) * rooms;
+                                })
+                                .sum());
                 booking.setPaymentDueTime(LocalDateTime.now().plusMinutes(15));
 
                 bookingRepository.save(booking);
 
-                log.info("Booking initiated successfully bookingId={}, bookingReference={}, userId={}, hotelId={}",
-                                booking.getBookingId(),
-                                booking.getBookingReference(),
-                                userId,
-                                request.getHotelId());
+                log.info("Booking state persisted successfully reference={}, userId={}",
+                        booking.getBookingReference(), userId);
 
                 return BookingResponse.builder()
-                                .bookingId(booking.getBookingId())
-                                .bookingReference(booking.getBookingReference())
-                                .status(booking.getStatus())
-                                .totalAmount(booking.getTotalAmount())
-                                .currency(booking.getCurrency())
-                                .build();
+                        .bookingId(booking.getBookingId())
+                        .bookingReference(booking.getBookingReference())
+                        .status(booking.getStatus())
+                        .totalAmount(booking.getTotalAmount())
+                        .currency(booking.getCurrency())
+                        .build();
         }
+
 
         public void confirmBooking(String bookingReference) {
                 log.debug("Confirming booking bookingReference={}", bookingReference);

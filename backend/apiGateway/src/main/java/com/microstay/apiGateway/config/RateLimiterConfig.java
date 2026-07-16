@@ -15,7 +15,7 @@ public class RateLimiterConfig {
     public KeyResolver userKeyResolver(JwtUtils jwtUtils) {
         return exchange -> {
             try {
-                // 🔐 JWT-based (if logged in)
+                // JWT-based (if logged in)
                 String authHeader = exchange.getRequest()
                         .getHeaders()
                         .getFirst("Authorization");
@@ -29,7 +29,7 @@ public class RateLimiterConfig {
                     }
                 }
 
-                // 🌐 Try X-Forwarded-For (production)
+                // Try X-Forwarded-For (production)
                 String ip = exchange.getRequest()
                         .getHeaders()
                         .getFirst("X-Forwarded-For");
@@ -40,7 +40,7 @@ public class RateLimiterConfig {
                     return Mono.just("ip:" + resolvedIp);
                 }
 
-                // 🖥️ Fallback → direct client IP (local/dev)
+                // Fallback → direct client IP (local/dev)
                 ip = exchange.getRequest()
                         .getRemoteAddress()
                         .getAddress()

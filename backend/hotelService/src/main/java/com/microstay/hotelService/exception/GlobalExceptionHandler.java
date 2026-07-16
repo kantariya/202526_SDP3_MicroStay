@@ -1,6 +1,7 @@
 package com.microstay.hotelService.exception;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -85,6 +86,13 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleGenericException(Exception ex) {
         log.error("Unhandled exception in hotel service", ex);
         return buildError(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error", "An unexpected error occurred", null);
+    }
+
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    public ResponseEntity<String> handleOptimisticLockingFailure(OptimisticLockingFailureException ex) {
+        // Map the database lock collision directly to an HTTP 409 Conflict status
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body("The hotel inventory was updated by another session. Please try your request again.");
     }
 
     private ResponseEntity<Map<String, Object>> buildError(HttpStatus status, String error, String message, Map<String, ?> details) {

@@ -12,8 +12,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -28,6 +34,9 @@ import java.util.Map;
 public class HotelServiceImpl implements HotelService {
 
     private final HotelRepository hotelRepository;
+
+    private MongoTemplate mongoTemplate;
+
 
     @Override
     public Page<Hotel> searchHotels(
@@ -182,13 +191,15 @@ public class HotelServiceImpl implements HotelService {
     public Hotel getHotelDetails(String hotelId, boolean includeInactiveRooms) {
         log.debug("Fetching hotel details hotelId={}, includeInactiveRooms={}", hotelId, includeInactiveRooms);
         Hotel hotel = hotelRepository.findById(hotelId)
-                .orElseThrow(() -> new RuntimeException("Hotel not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Hotel not found"));
 
         if (!includeInactiveRooms && hotel.getRooms() != null) {
             // Filter inactive rooms
-            List<Room> activeRooms = hotel.getRooms().stream()
-                    .filter(r -> Boolean.TRUE.equals(r.getActive()))
-                    .toList();
+            List<Room> activeRooms = new java.util.ArrayList<>(
+                    hotel.getRooms().stream()
+                            .filter(r -> Boolean.TRUE.equals(r.getActive()))
+                            .toList()
+            );
             hotel.setRooms(activeRooms);
         }
 
@@ -249,7 +260,6 @@ public class HotelServiceImpl implements HotelService {
 
     @Override
     public AvailabilityResponse checkAvailability(AvailabilityRequest request) {
-
         log.debug("Checking hotel availability hotelId={}, roomId={}, checkIn={}, checkOut={}, roomsRequired={}", request.getHotelId(), request.getRoomId(), request.getCheckInDate(), request.getCheckOutDate(), request.getRoomsRequired());
 
         Hotel hotel = getHotelDetails(request.getHotelId(), true);
@@ -257,7 +267,6 @@ public class HotelServiceImpl implements HotelService {
         Map<LocalDate, Availability> availabilityMap = getAvailabilityMap(room);
 
         LocalDate date = request.getCheckInDate();
-
         double totalAmount = 0.0;
         double basePrice = room.getPricing().getBasePrice();
         double weekendMultiplier = room.getPricing().getWeekendMultiplier() != null
@@ -265,19 +274,17 @@ public class HotelServiceImpl implements HotelService {
                 : 1.0;
 
         while (date.isBefore(request.getCheckOutDate())) {
-
             Availability availability = availabilityMap.get(date);
 
             log.debug("Availability lookup hotelId={}, roomId={}, date={}, availability={}", request.getHotelId(), request.getRoomId(), date, availability);
 
-            // If date not present, assume full availability
+            // 🛠️ FIX: Generate missing date boundaries purely IN-MEMORY.
+            // Completely removed .add() and .save() lines to prevent concurrent pollution and E11000 crashes.
             if (availability == null) {
                 availability = new Availability(
                         date,
                         room.getInventory().getTotalRooms());
-                room.getAvailability().add(availability);
-                availabilityMap.put(date, availability);
-                log.debug("Created default availability row for hotelId={}, roomId={}, date={}, rooms={}", request.getHotelId(), request.getRoomId(), date, room.getInventory().getTotalRooms());
+                log.debug("Dynamically calculated in-memory default availability for date={}, rooms={}", date, room.getInventory().getTotalRooms());
             }
 
             if (availability.getAvailableRooms() < request.getRoomsRequired()) {
@@ -291,17 +298,11 @@ public class HotelServiceImpl implements HotelService {
 
             // Price calculation (weekend handling)
             boolean isWeekend = date.getDayOfWeek().getValue() >= 6; // Sat/Sun
-
-            double priceForDay = basePrice *
-                    (isWeekend ? weekendMultiplier : 1.0);
-
+            double priceForDay = basePrice * (isWeekend ? weekendMultiplier : 1.0);
             totalAmount += priceForDay * request.getRoomsRequired();
 
             date = date.plusDays(1);
         }
-
-        // No inventory change here, but availability rows may be initialized
-        hotelRepository.save(hotel);
 
         log.debug("Availability success hotelId={}, roomId={}, totalAmount={}", request.getHotelId(), request.getRoomId(), totalAmount);
         return new AvailabilityResponse(
@@ -310,6 +311,7 @@ public class HotelServiceImpl implements HotelService {
                 totalAmount,
                 room.getPricing().getCurrency());
     }
+
 
     @Override
     @Transactional
@@ -335,10 +337,25 @@ public class HotelServiceImpl implements HotelService {
 
             log.debug("Booking availability check hotelId={}, roomId={}, date={}, availability={}, request={}", request.getHotelId(), request.getRoomId(), date, availability, request.getBookingId());
 
-            if (availability == null ||
-                    availability.getAvailableRooms() < request.getRoomsRequired()) {
+            // 🛠️ FIX: Lazy initialize missing dates right here in the write path!
+            if (availability == null) {
+                availability = new Availability(
+                        date,
+                        room.getInventory().getTotalRooms());
 
-                throw new IllegalStateException(
+                // Safe initialization if the array list is null
+                if (room.getAvailability() == null) {
+                    room.setAvailability(new java.util.ArrayList<>());
+                }
+
+                room.getAvailability().add(availability);
+                availabilityMap.put(date, availability);
+                log.debug("Lazy-initialized default availability row for date={}", date);
+            }
+
+            // Now this check safely evaluates both existing and newly generated dates
+            if (availability.getAvailableRooms() < request.getRoomsRequired()) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
                         "Booking failed. Availability mismatch on " + date);
             }
 
@@ -359,7 +376,23 @@ public class HotelServiceImpl implements HotelService {
             date = date.plusDays(1);
         }
 
-        hotelRepository.save(hotel);
+
+
+
+            // Execute the custom atomic update query
+            long modifiedCount = hotelRepository.updateHotelRoomsAndIncrementVersion(
+                    hotel.getId(),
+                    hotel.getRooms()
+            );
+
+            // If 0 documents matched, another concurrent process updated the database first
+            if (modifiedCount == 0) {
+                log.error("Failed to commit inventory. Hotel document not found for id={}", hotel.getId());
+                throw new org.springframework.dao.OptimisticLockingFailureException(
+                        "Concurrent booking modification detected for hotelId=" + hotel.getId()
+                );
+            }
+
 
         log.info("Booking inventory confirmed hotelId={}, roomId={}, bookingId={}, totalAmount={}", request.getHotelId(), request.getRoomId(), request.getBookingId(), totalAmount);
         return new AvailabilityResponse(
@@ -368,6 +401,7 @@ public class HotelServiceImpl implements HotelService {
                 totalAmount,
                 room.getPricing().getCurrency());
     }
+
 
     @Transactional
     @Override
